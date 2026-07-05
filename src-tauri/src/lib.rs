@@ -38,6 +38,13 @@ struct LauncherAccount {
     minecraft_access_token: String,
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AuthSession {
+    refresh_token: String,
+    account: LauncherAccount,
+}
+
 const AUTH_SERVICE: &str = "zzapchoLauncher";
 const REFRESH_TOKEN_KEY: &str = "microsoft-refresh-token";
 const ACCOUNT_CACHE_KEY: &str = "minecraft-account-cache";
@@ -46,19 +53,70 @@ fn keyring_entry(key: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new(AUTH_SERVICE, key).map_err(|error| error.to_string())
 }
 
-fn load_cached_account() -> Option<LauncherAccount> {
-    keyring_entry(ACCOUNT_CACHE_KEY)
-        .ok()?
-        .get_password()
+fn auth_session_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("auth-session.json"))
+}
+
+fn load_file_session(app: &tauri::AppHandle) -> Option<AuthSession> {
+    fs::read_to_string(auth_session_path(app).ok()?)
         .ok()
         .and_then(|value| serde_json::from_str(&value).ok())
 }
 
-fn store_cached_account(account: &LauncherAccount) -> Result<(), String> {
-    let value = serde_json::to_string(account).map_err(|error| error.to_string())?;
-    keyring_entry(ACCOUNT_CACHE_KEY)?
-        .set_password(&value)
-        .map_err(|error| error.to_string())
+fn load_refresh_token(app: &tauri::AppHandle) -> Option<String> {
+    keyring_entry(REFRESH_TOKEN_KEY)
+        .ok()
+        .and_then(|entry| entry.get_password().ok())
+        .filter(|value| !value.is_empty())
+        .or_else(|| load_file_session(app).map(|session| session.refresh_token))
+}
+
+fn load_cached_account(app: &tauri::AppHandle) -> Option<LauncherAccount> {
+    keyring_entry(ACCOUNT_CACHE_KEY)
+        .ok()
+        .and_then(|entry| entry.get_password().ok())
+        .and_then(|value| serde_json::from_str(&value).ok())
+        .or_else(|| load_file_session(app).map(|session| session.account))
+}
+
+fn store_auth_session(
+    app: &tauri::AppHandle,
+    refresh_token: &str,
+    account: &LauncherAccount,
+) -> Result<(), String> {
+    let path = auth_session_path(app)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let session = AuthSession {
+        refresh_token: refresh_token.to_string(),
+        account: account.clone(),
+    };
+    let value = serde_json::to_vec(&session).map_err(|error| error.to_string())?;
+    let temporary = path.with_extension("json.tmp");
+    fs::write(&temporary, value).map_err(|error| error.to_string())?;
+    if path.exists() {
+        fs::remove_file(&path).map_err(|error| error.to_string())?;
+    }
+    fs::rename(&temporary, &path).map_err(|error| error.to_string())?;
+
+    let _ = keyring_entry(REFRESH_TOKEN_KEY).and_then(|entry| {
+        entry
+            .set_password(refresh_token)
+            .map_err(|error| error.to_string())
+    });
+    if let Ok(account_json) = serde_json::to_string(account) {
+        let _ = keyring_entry(ACCOUNT_CACHE_KEY).and_then(|entry| {
+            entry
+                .set_password(&account_json)
+                .map_err(|error| error.to_string())
+        });
+    }
+    Ok(())
 }
 
 fn auth_error(payload: &serde_json::Value, fallback: &str) -> String {
@@ -88,6 +146,7 @@ async fn microsoft_token(
 }
 
 async fn exchange_for_minecraft(
+    app: &tauri::AppHandle,
     token: MicrosoftToken,
     previous_refresh: Option<String>,
 ) -> Result<LauncherAccount, String> {
@@ -188,10 +247,6 @@ async fn exchange_for_minecraft(
         .refresh_token
         .or(previous_refresh)
         .ok_or("Microsoft 재로그인 토큰을 받지 못했습니다.")?;
-    keyring_entry(REFRESH_TOKEN_KEY)?
-        .set_password(&refresh_token)
-        .map_err(|error| error.to_string())?;
-
     let account = LauncherAccount {
         id,
         name,
@@ -199,7 +254,7 @@ async fn exchange_for_minecraft(
         kind: "microsoft".into(),
         minecraft_access_token,
     };
-    store_cached_account(&account)?;
+    store_auth_session(app, &refresh_token, &account)?;
     Ok(account)
 }
 
@@ -309,6 +364,7 @@ async fn begin_microsoft_device_login() -> Result<DeviceCode, String> {
 
 #[tauri::command]
 async fn poll_microsoft_device_login(
+    app: tauri::AppHandle,
     device_code: String,
 ) -> Result<Option<LauncherAccount>, String> {
     let (status, payload) = microsoft_token(&[
@@ -320,7 +376,7 @@ async fn poll_microsoft_device_login(
     if status.is_success() {
         let token =
             serde_json::from_value::<MicrosoftToken>(payload).map_err(|error| error.to_string())?;
-        return exchange_for_minecraft(token, None).await.map(Some);
+        return exchange_for_minecraft(&app, token, None).await.map(Some);
     }
     match payload.get("error").and_then(|value| value.as_str()) {
         Some("authorization_pending") | Some("slow_down") => Ok(None),
@@ -332,12 +388,12 @@ async fn poll_microsoft_device_login(
 }
 
 #[tauri::command]
-async fn restore_microsoft_account() -> Result<Option<LauncherAccount>, String> {
-    let entry = keyring_entry(REFRESH_TOKEN_KEY)?;
-    let refresh_token = match entry.get_password() {
-        Ok(value) => value,
-        Err(keyring::Error::NoEntry) => return Ok(load_cached_account()),
-        Err(error) => return Err(error.to_string()),
+async fn restore_microsoft_account(
+    app: tauri::AppHandle,
+) -> Result<Option<LauncherAccount>, String> {
+    let refresh_token = match load_refresh_token(&app) {
+        Some(value) => value,
+        None => return Ok(load_cached_account(&app)),
     };
     let refresh_result = microsoft_token(&[
         ("client_id", MICROSOFT_CLIENT_ID),
@@ -348,10 +404,10 @@ async fn restore_microsoft_account() -> Result<Option<LauncherAccount>, String> 
     .await;
     let (status, payload) = match refresh_result {
         Ok(result) => result,
-        Err(error) => return load_cached_account().map(Some).ok_or(error),
+        Err(error) => return load_cached_account(&app).map(Some).ok_or(error),
     };
     if !status.is_success() {
-        if let Some(account) = load_cached_account() {
+        if let Some(account) = load_cached_account(&app) {
             return Ok(Some(account));
         }
     }
@@ -363,11 +419,11 @@ async fn restore_microsoft_account() -> Result<Option<LauncherAccount>, String> 
     }
     let token = match serde_json::from_value::<MicrosoftToken>(payload) {
         Ok(token) => token,
-        Err(error) => return load_cached_account().map(Some).ok_or(error.to_string()),
+        Err(error) => return load_cached_account(&app).map(Some).ok_or(error.to_string()),
     };
-    match exchange_for_minecraft(token, Some(refresh_token)).await {
+    match exchange_for_minecraft(&app, token, Some(refresh_token)).await {
         Ok(account) => Ok(Some(account)),
-        Err(error) => load_cached_account().map(Some).ok_or(error),
+        Err(error) => load_cached_account(&app).map(Some).ok_or(error),
     }
 }
 
@@ -379,22 +435,21 @@ fn store_auth_secret(value: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn load_auth_secret() -> Result<Option<String>, String> {
-    let entry = keyring_entry(REFRESH_TOKEN_KEY)?;
-    match entry.get_password() {
-        Ok(value) => Ok(Some(value)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(error) => Err(error.to_string()),
-    }
+fn load_auth_secret(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    Ok(load_refresh_token(&app))
 }
 
 #[tauri::command]
-fn delete_auth_secret() -> Result<(), String> {
+fn delete_auth_secret(app: tauri::AppHandle) -> Result<(), String> {
     for key in [REFRESH_TOKEN_KEY, ACCOUNT_CACHE_KEY] {
         match keyring_entry(key)?.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => {}
             Err(error) => return Err(error.to_string()),
         }
+    }
+    let path = auth_session_path(&app)?;
+    if path.exists() {
+        fs::remove_file(path).map_err(|error| error.to_string())?;
     }
     Ok(())
 }

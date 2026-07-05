@@ -1,40 +1,29 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
-
+setlocal EnableExtensions
 cd /d "%~dp0.."
 
-set "VERSION=%~1"
+title zzapcho Launcher - GitHub Release
+echo.
+echo  zzapcho Launcher GitHub release
+echo  --------------------------------
+echo.
 
-if "%VERSION%"=="" (
-  for /f "usebackq delims=" %%V in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$pkg=Get-Content package.json -Raw | ConvertFrom-Json; $parts=$pkg.version.Split('.'); if ($parts.Count -lt 3) { throw 'package.json version must be semver, like 0.3.1' }; '{0}.{1}.{2}' -f $parts[0],$parts[1],([int]$parts[2]+1)"`) do set "VERSION=%%V"
+set "RELEASE_ARGS=%*"
+if "%~1"=="" (
+  set /p "RELEASE_VERSION=Version number (blank = automatic): "
+  if defined RELEASE_VERSION set "RELEASE_ARGS=-Version %RELEASE_VERSION%"
+  echo.
 )
 
-if "%VERSION%"=="" (
-  echo Failed to resolve release version.
-  exit /b 1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0publish-release.ps1" %RELEASE_ARGS%
+set "EXIT_CODE=%ERRORLEVEL%"
+
+echo.
+if not "%EXIT_CODE%"=="0" (
+  echo  Release failed. Check the message above.
+) else (
+  echo  Release completed successfully.
 )
-
 echo.
-echo zzapcho Launcher release helper
-echo Version: %VERSION%
-echo.
-
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$v='%VERSION%'; $files=@('package.json','src-tauri/tauri.conf.json'); foreach($file in $files){ $json=Get-Content $file -Raw | ConvertFrom-Json; $json.version=$v; $json | ConvertTo-Json -Depth 32 | Set-Content $file -Encoding UTF8 }; $section='src/components/SectionPanel.tsx'; if(Test-Path $section){ $text=Get-Content $section -Raw; $text=$text -replace 'zzapcho Launcher [0-9]+\.[0-9]+\.[0-9]+', ('zzapcho Launcher '+$v); Set-Content $section $text -Encoding UTF8 }"
-
-if errorlevel 1 (
-  echo Failed to update version files.
-  exit /b 1
-)
-
-echo Updated package.json, tauri.conf.json, and settings display if present.
-echo.
-
-npm install
-if errorlevel 1 exit /b 1
-
-npm run tauri:build
-if errorlevel 1 exit /b 1
-
-echo.
-echo Build complete for v%VERSION%.
-echo Bundles are under src-tauri\target\release\bundle
+if not defined ZZAPCHO_NO_PAUSE pause
+exit /b %EXIT_CODE%
