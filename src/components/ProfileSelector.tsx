@@ -40,15 +40,14 @@ export function ProfileSelector({ profiles, selectedProfile, onSelect, disabled 
               onClick={() => { onSelect(profile.id); setOpen(false); }}
             >
               <span className="profile-dot" style={{ backgroundColor: profile.accentColor }} />
-              <span><strong>{profile.name}</strong><small>{profile.description}</small></span>
+              <strong>{profile.name}</strong>
               {profile.id === selectedProfile.id && <span className="check">✓</span>}
             </button>
           ))}
         </div>
       )}
       <button className="profile-trigger" type="button" onClick={() => setOpen((value) => !value)} disabled={disabled} aria-expanded={open}>
-        <span className="trigger-copy"><small>현재 프로필</small><strong>{selectedProfile.name}</strong></span>
-        <span className={`chevron${open ? " open" : ""}`} aria-hidden="true">⌃</span>
+        <strong>{selectedProfile.name}</strong>
       </button>
     </div>
   );
