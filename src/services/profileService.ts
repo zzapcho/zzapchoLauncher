@@ -20,7 +20,7 @@ function normalizeProfile(profile: LauncherProfile): LauncherProfile {
   return {
     ...profile,
     javaVersion: profile.javaVersion ?? 21,
-    defaultServer: profile.defaultServer ?? { name: "Server", address: "console.zzapcho.kr", port: 3379 },
+    defaultServer: profile.defaultServer ?? { name: "zzapcho Server", address: "mc.zzapcho.kr", port: 25565 },
     editableFields: { server: false, ...profile.editableFields },
   };
 }
