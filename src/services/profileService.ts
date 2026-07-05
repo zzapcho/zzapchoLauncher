@@ -1,7 +1,9 @@
 import localProfiles from "../data/profiles.json";
 import type { LauncherProfile } from "../types/profile";
 
-export const PROFILE_MANIFEST_URL = "";
+const MANIFEST_BASE = "https://raw.githubusercontent.com";
+const MANIFEST_PATH = "/zzapcho/zzapchoLauncher/codex/rounded-launcher-menu/src/data/profiles.json";
+export const PROFILE_MANIFEST_URL = `${MANIFEST_BASE}${MANIFEST_PATH}`;
 
 function isProfile(value: unknown): value is LauncherProfile {
   if (!value || typeof value !== "object") return false;
@@ -12,7 +14,7 @@ function isProfile(value: unknown): value is LauncherProfile {
 export async function loadProfiles(): Promise<LauncherProfile[]> {
   if (PROFILE_MANIFEST_URL) {
     try {
-      const response = await fetch(PROFILE_MANIFEST_URL);
+      const response = await fetch(`${PROFILE_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`Manifest request failed: ${response.status}`);
       const manifest: unknown = await response.json();
       if (Array.isArray(manifest) && manifest.every(isProfile)) return manifest;
