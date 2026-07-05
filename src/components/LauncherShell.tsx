@@ -68,7 +68,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
         <VersionBadge profile={selectedProfile} />
       </section> : <SectionPanel profile={selectedProfile} section={activeSection} />}
 
-      <ProfileSelector profiles={profiles} selectedProfile={selectedProfile} onSelect={changeProfile} disabled={busy} />
+      {activeSection === "home" && <ProfileSelector profiles={profiles} selectedProfile={selectedProfile} onSelect={changeProfile} disabled={busy} />}
     </main>
   );
 }

@@ -1,4 +1,5 @@
 import type { LauncherProfile, LaunchResult, LaunchStatus } from "../types/profile";
+import { validateProfileContent } from "./contentService";
 
 export interface LaunchProgress {
   status: LaunchStatus;
@@ -11,6 +12,10 @@ export async function launchProfile(
   profile: LauncherProfile,
   onProgress?: (progress: LaunchProgress) => void,
 ): Promise<LaunchResult> {
+  const contentValidation = validateProfileContent(profile);
+  if (!contentValidation.valid) {
+    throw new Error(contentValidation.issues.join("\n"));
+  }
   const steps: LaunchProgress[] = [
     { status: "preparing", message: "준비 중..." },
     { status: "checking-profile", message: "프로필 확인 중..." },
@@ -25,6 +30,7 @@ export async function launchProfile(
 
   console.info("[zzapcho Launcher] launch stub", {
     profile,
+    enabledContent: contentValidation.enabled,
     futureLaunchPipeline: ["Microsoft 인증", "Java 확인", "게임/로더 설치", "콘텐츠 동기화", "서버 등록", "Minecraft 프로세스 실행"],
   });
 

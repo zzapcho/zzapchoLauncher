@@ -9,11 +9,10 @@
     "minecraftVersion": "1.21.1",
     "modLoader": "fabric",
     "modLoaderVersion": "0.16.9",
-    "defaultServer": { "name": "zzapcho SMP", "address": "smp.je.zzapcho.kr", "port": 25565 },
     "mods": [{ "id": "fabric-api", "name": "Fabric API", "version": "0.102.0", "required": true, "url": "" }],
     "resourcePacks": [],
     "shaders": [],
-    "editableFields": { "server": false, "mods": false, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
+    "editableFields": { "mods": false, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
     "launchOptions": { "minMemoryMb": 2048, "maxMemoryMb": 4096, "javaArgs": [] }
   },
   {
@@ -26,11 +25,10 @@
     "minecraftVersion": "1.21.1",
     "modLoader": "vanilla",
     "modLoaderVersion": "",
-    "defaultServer": { "name": "Creative Lab", "address": "mc.zzapcho.kr", "port": 25565 },
     "mods": [],
     "resourcePacks": [],
     "shaders": [],
-    "editableFields": { "server": false, "mods": false, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
+    "editableFields": { "mods": false, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
     "launchOptions": { "minMemoryMb": 1024, "maxMemoryMb": 3072, "javaArgs": [] }
   },
   {
@@ -43,7 +41,6 @@
     "minecraftVersion": "1.20.1",
     "modLoader": "fabric",
     "modLoaderVersion": "0.15.11",
-    "defaultServer": { "name": "Modded Test", "address": "test.zzapcho.kr", "port": 25565 },
     "mods": [
       { "id": "fabric-api", "name": "Fabric API", "version": "0.92.2", "required": true, "url": "" },
       { "id": "sodium", "name": "Sodium", "version": "0.5.11", "required": true, "url": "" },
@@ -51,7 +48,7 @@
     ],
     "resourcePacks": [],
     "shaders": [],
-    "editableFields": { "server": false, "mods": false, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
+    "editableFields": { "mods": true, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
     "launchOptions": { "minMemoryMb": 3072, "maxMemoryMb": 6144, "javaArgs": ["-XX:+UseG1GC"] }
   }
 ]

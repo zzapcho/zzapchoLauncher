@@ -1,11 +1,5 @@
 export type ModLoader = "fabric" | "forge" | "quilt" | "vanilla";
 
-export interface ServerDefinition {
-  name: string;
-  address: string;
-  port: number;
-}
-
 export interface ContentEntry {
   id: string;
   name: string;
@@ -15,7 +9,6 @@ export interface ContentEntry {
 }
 
 export interface EditableFields {
-  server: boolean;
   mods: boolean;
   resourcePacks: boolean;
   shaders: boolean;
@@ -35,7 +28,6 @@ export interface LauncherProfile {
   minecraftVersion: string;
   modLoader: ModLoader;
   modLoaderVersion: string;
-  defaultServer: ServerDefinition;
   mods: ContentEntry[];
   resourcePacks: ContentEntry[];
   shaders: ContentEntry[];
