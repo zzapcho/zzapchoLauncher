@@ -6,13 +6,15 @@ const STORAGE_KEY = "zzapchoLauncher.selectedProfileId";
 const REFRESH_INTERVAL_MS = 60_000;
 const REFRESH_COOLDOWN_MS = 5_000;
 
-export function useProfiles() {
+export function useProfiles(onProfilesRefreshed?: () => void | Promise<void>) {
   const [profiles, setProfiles] = useState<LauncherProfile[]>([]);
   const [selectedId, setSelectedId] = useState(() => localStorage.getItem(STORAGE_KEY) ?? "");
   const [loading, setLoading] = useState(true);
   const profilesRef = useRef<LauncherProfile[]>([]);
   const refreshRequest = useRef<Promise<LauncherProfile[]> | null>(null);
   const lastRefreshAt = useRef(0);
+  const onProfilesRefreshedRef = useRef(onProfilesRefreshed);
+  onProfilesRefreshedRef.current = onProfilesRefreshed;
 
   const refreshProfiles = useCallback((force = false): Promise<LauncherProfile[]> => {
     if (refreshRequest.current) return refreshRequest.current;
@@ -25,6 +27,7 @@ export function useProfiles() {
       setProfiles(items);
       setSelectedId((current) => items.some((profile) => profile.id === current) ? current : (items[0]?.id ?? ""));
       lastRefreshAt.current = Date.now();
+      void onProfilesRefreshedRef.current?.();
       return items;
     }).finally(() => {
       refreshRequest.current = null;

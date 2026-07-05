@@ -302,7 +302,7 @@ function SettingsPanel({ profile, account, onLogout, appUpdate }: { profile: Lau
       <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
       <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
     </article>
-    <article><span>정보</span><strong>zzapcho Launcher 0.3.6</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article><span>정보</span><strong>zzapcho Launcher 0.3.7</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <JavaSetting profile={profile} />
     <footer>made by zzapcho</footer>
   </div>;

@@ -6,8 +6,8 @@ import { UpdateOverlay } from "./components/UpdateOverlay";
 import { useAppUpdate } from "./hooks/useAppUpdate";
 
 export default function App() {
-  const profiles = useProfiles();
   const appUpdate = useAppUpdate();
+  const profiles = useProfiles(appUpdate.checkNow);
   useEffect(() => {
     const restrictContextMenu = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;

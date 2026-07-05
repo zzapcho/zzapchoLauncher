@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { checkForUpdate, installUpdate } from "../services/updateService";
 
 export interface AppUpdateState {
@@ -22,25 +22,27 @@ export function useAppUpdate(): AppUpdateState {
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("업데이트를 준비하는 중...");
   const [error, setError] = useState("");
+  const checkRequest = useRef<Promise<void> | null>(null);
 
-  const checkNow = useCallback(async () => {
-    setChecking(true);
-    setError("");
-    try {
-      const update = await checkForUpdate();
-      setVersion(update?.version);
-      setNotes(update?.notes);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "업데이트 확인에 실패했습니다.");
-    } finally {
-      setChecking(false);
-    }
+  const checkNow = useCallback((): Promise<void> => {
+    if (checkRequest.current) return checkRequest.current;
+    const request = (async () => {
+      setChecking(true);
+      setError("");
+      try {
+        const update = await checkForUpdate();
+        setVersion(update?.version);
+        setNotes(update?.notes);
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "업데이트 확인에 실패했습니다.");
+      } finally {
+        setChecking(false);
+        checkRequest.current = null;
+      }
+    })();
+    checkRequest.current = request;
+    return request;
   }, []);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void checkNow(), 1_500);
-    return () => window.clearTimeout(timer);
-  }, [checkNow]);
 
   const install = useCallback(async () => {
     setUpdating(true);
