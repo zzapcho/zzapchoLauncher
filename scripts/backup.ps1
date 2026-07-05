@@ -18,11 +18,21 @@ New-Item -ItemType Directory -Force -Path $StagingRoot | Out-Null
 
 try {
     $ExcludedDirectories = @(".git", "node_modules", "dist", "target", "Backups")
-    Get-ChildItem -LiteralPath $ProjectRoot -Force | Where-Object {
-        $_.Name -notin $ExcludedDirectories
-    } | ForEach-Object {
-        Copy-Item -LiteralPath $_.FullName -Destination $StagingRoot -Recurse -Force
+    function Copy-ProjectTree([string]$Source, [string]$Destination) {
+        Get-ChildItem -LiteralPath $Source -Force | ForEach-Object {
+            if ($_.PSIsContainer) {
+                if ($_.Name -notin $ExcludedDirectories) {
+                    $ChildDestination = Join-Path $Destination $_.Name
+                    New-Item -ItemType Directory -Force -Path $ChildDestination | Out-Null
+                    Copy-ProjectTree -Source $_.FullName -Destination $ChildDestination
+                }
+            }
+            else {
+                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $Destination $_.Name) -Force
+            }
+        }
     }
+    Copy-ProjectTree -Source $ProjectRoot -Destination $StagingRoot
 
     Compress-Archive -Path (Join-Path $StagingRoot "*") -DestinationPath $ArchivePath -CompressionLevel Optimal
     Write-Output "Backup created: $ArchivePath"

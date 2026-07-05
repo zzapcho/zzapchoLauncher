@@ -1,40 +1,28 @@
 # zzapcho Launcher
 
-작고 간결한 Minecraft 커스텀 런처 v2의 초기 버전입니다. 420×560 고정 데스크톱 창, JSON 기반 프로필, 프로필별 배경/강조색, 그리고 실제 런처로 교체 가능한 mock launch 흐름을 제공합니다.
+Tauri 2, React 19, TypeScript로 만든 Minecraft 커스텀 런처입니다.
 
-## 기술 스택
-
-- Tauri 2
-- React 19 + TypeScript
-- Vite 7
-- 외부 UI 라이브러리 없는 순수 CSS
-
-## 실행
-
-Node.js와 Rust가 설치되어 있어야 합니다.
+## 실행과 빌드
 
 ```powershell
 npm install
-npm run dev
-```
-
-Tauri 데스크톱 창은 다음 명령으로 실행합니다.
-
-```powershell
 npm run tauri:dev
+npm run tauri:build
 ```
 
-웹 빌드는 `npm run build`, 데스크톱 번들은 `npm run tauri:build`를 사용합니다.
+## Microsoft 로그인
 
-## 프로필 시스템
+로그인 버튼을 누르면 기본 브라우저에 Microsoft 기기 로그인 화면이 열립니다. 런처에 표시된 코드를 입력하면 Xbox Live와 Minecraft Services 인증을 완료합니다. 별도의 Client ID 입력은 필요하지 않습니다. 계정 표시 정보는 로컬 저장소에, 갱신 토큰은 Windows 자격 증명 관리자에 저장되며 다음 실행부터 자동으로 세션을 복원합니다.
 
-프로필은 `src/data/profiles.json`에서 관리합니다. `id`, 표시 문구, 배경 이미지, accent 색상, Minecraft/로더 버전, 서버, 콘텐츠, 사용자 수정 가능 필드, 메모리와 JVM 옵션을 한 객체에 담습니다. 선택한 프로필 ID는 `zzapchoLauncher.selectedProfileId` 키로 localStorage에 저장됩니다.
+## Minecraft 실행과 Java
 
-원격 manifest를 연결하려면 `src/services/profileService.ts`의 `PROFILE_MANIFEST_URL`에 URL을 지정하세요. 원격 요청이나 검증이 실패하면 로컬 JSON으로 안전하게 돌아옵니다. 관리자가 관리하는 값은 manifest가 소유하고, 향후 사용자 override는 `editableFields`가 `true`인 항목에만 허용하는 구조입니다.
+PLAY를 누르면 프로필의 Minecraft 및 Fabric/Quilt/Forge 파일을 확인·설치한 뒤 실제 Java 프로세스를 실행합니다. 게임의 stdout/stderr는 런처의 게임 로그 탭에 실시간으로 표시됩니다.
 
-## 아직 mock인 기능
+Java 런타임 관리는 `src-tauri/src/java_runtime.rs`로 분리되어 있습니다. 프로필의 `javaVersion` 값이 있으면 해당 버전을 사용하고, 없으면 Minecraft 버전에 맞춰 Java 8/17/21을 선택합니다. 설치된 런타임이 없으면 Eclipse Temurin JRE를 앱 데이터 폴더에 자동 설치합니다. 향후 콘솔에서도 `ensure_java_runtime` 명령과 같은 모듈을 재사용할 수 있습니다.
 
-Play는 현재 프로필/콘텐츠 확인 상태를 순서대로 보여주고 선택한 프로필을 콘솔에 출력합니다. Microsoft 계정 인증, Java 탐색, Minecraft/로더/모드/리소스팩/셰이더 설치, 서버 자동 등록, 실제 프로세스 실행은 아직 연결되지 않았습니다.
+## 프로필과 콘텐츠
+
+프로필은 `src/data/profiles.json`에서 관리합니다. 선택한 프로필 ID만 로컬 저장소에 보관하며, 모드·리소스팩·셰이더 목록은 프로필별로 분리됩니다. Modrinth 검색 결과는 스크롤 끝에서 추가로 불러옵니다.
 
 ## 백업
 
@@ -42,27 +30,13 @@ Play는 현재 프로필/콘텐츠 확인 상태를 순서대로 보여주고 �
 
 ```powershell
 npm run backup
-# 또는 이름 지정
 powershell -ExecutionPolicy Bypass -File scripts/backup.ps1 -BackupName before-feature
 ```
 
-파일은 `Backups/yyyy-MM-dd_HH-mm-ss_백업이름.zip` 형식으로 생성됩니다. `.git`, `node_modules`, `dist`, Rust `target`, 기존 `Backups`는 제외됩니다.
+백업 파일은 `Backups/yyyy-MM-dd_HH-mm-ss_백업이름.zip` 형식으로 생성됩니다.
 
-6시간마다 자동 백업하는 Windows 작업 스케줄러 등록:
+6시간마다 자동 백업 작업 등록:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/install-backup-task.ps1 -IntervalHours 6 -BackupName auto
 ```
-
-해제는 `scripts/uninstall-backup-task.ps1`을 실행합니다.
-
-## 로드맵
-
-1. 실제 Minecraft launch 연결
-2. Microsoft 계정 인증
-3. 게임/로더/콘텐츠 다운로드와 동기화
-4. 기본 서버 자동 등록
-5. 별도 관리자 웹 콘솔
-6. GitHub 원격 manifest 자동 업데이트
-7. 런처 자동 업데이트
-8. 테마와 프로필 사용자 설정

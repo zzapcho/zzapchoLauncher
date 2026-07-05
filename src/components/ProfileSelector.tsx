@@ -26,10 +26,10 @@ export function ProfileSelector({ profiles, selectedProfile, onSelect, disabled 
   }, []);
 
   return (
-    <div className="profile-selector" ref={selectorRef}>
-      {open && (
-        <div className="profile-menu" role="listbox" aria-label="프로필 목록">
+    <div className={`profile-selector${open ? " is-open" : ""}`} ref={selectorRef}>
+        <div className={`profile-menu${open ? " is-open" : ""}${profiles.length > 4 ? " has-overflow" : ""}`} role="listbox" aria-label="프로필 목록" aria-hidden={!open}>
           <p className="profile-menu-label">프로필 선택</p>
+          <div className="profile-options">
           {profiles.map((profile) => (
             <button
               type="button"
@@ -37,18 +37,18 @@ export function ProfileSelector({ profiles, selectedProfile, onSelect, disabled 
               aria-selected={profile.id === selectedProfile.id}
               className={profile.id === selectedProfile.id ? "selected" : ""}
               key={profile.id}
+              tabIndex={open ? 0 : -1}
               onClick={() => { onSelect(profile.id); setOpen(false); }}
             >
               <span className="profile-dot" style={{ backgroundColor: profile.accentColor }} />
-              <span><strong>{profile.name}</strong><small>{profile.description}</small></span>
+              <strong>{profile.name}</strong>
               {profile.id === selectedProfile.id && <span className="check">✓</span>}
             </button>
           ))}
+          </div>
         </div>
-      )}
       <button className="profile-trigger" type="button" onClick={() => setOpen((value) => !value)} disabled={disabled} aria-expanded={open}>
-        <span className="trigger-copy"><small>현재 프로필</small><strong>{selectedProfile.name}</strong></span>
-        <span className={`chevron${open ? " open" : ""}`} aria-hidden="true">⌃</span>
+        <strong>{selectedProfile.name}</strong>
       </button>
     </div>
   );
