@@ -7,6 +7,7 @@ export interface ManagedContentEntry extends ContentEntry {
   enabled: boolean;
   fileName?: string;
   projectId?: string;
+  iconUrl?: string;
 }
 
 export type ProfileContentState = Record<ContentKind, ManagedContentEntry[]>;

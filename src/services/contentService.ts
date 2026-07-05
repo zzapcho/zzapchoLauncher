@@ -42,7 +42,7 @@ export function saveProfileContent(profileId: string, state: ProfileContentState
   localStorage.setItem(`${CONTENT_KEY_PREFIX}${profileId}`, JSON.stringify(userOnly));
 }
 
-export function createUserContent(name: string, fileName?: string, projectId?: string, version = "local"): ManagedContentEntry {
+export function createUserContent(name: string, fileName?: string, projectId?: string, version = "local", iconUrl?: string): ManagedContentEntry {
   return {
     id: projectId ? `modrinth-${projectId}` : `local-${Date.now()}-${name}`,
     name,
@@ -53,6 +53,7 @@ export function createUserContent(name: string, fileName?: string, projectId?: s
     enabled: true,
     fileName,
     projectId,
+    iconUrl,
   };
 }
 

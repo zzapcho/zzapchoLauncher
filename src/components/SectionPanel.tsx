@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useProfileContent } from "../hooks/useProfileContent";
 import { useUserSettings } from "../hooks/useUserSettings";
 import { createUserContent } from "../services/contentService";
-import { getInstallableVersion, searchModrinth, type ModrinthProject } from "../services/modrinthService";
+import { getInstallableVersion, getInstallableVersions, getProjectIcon, searchModrinth, type ModrinthProject, type ModrinthVersionOption } from "../services/modrinthService";
 import { getLogs, subscribeLogs, type LogSource } from "../services/logService";
-import type { ContentKind } from "../types/content";
+import type { ContentKind, ManagedContentEntry } from "../types/content";
 import type { LauncherProfile } from "../types/profile";
 import type { LauncherSection } from "../types/navigation";
 import type { LauncherAccount } from "../types/auth";
@@ -39,12 +39,26 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   const [hasMore, setHasMore] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [versionTarget, setVersionTarget] = useState<string | null>(null);
+  const [versionOptions, setVersionOptions] = useState<ModrinthVersionOption[]>([]);
+  const [versionBusy, setVersionBusy] = useState(false);
   const managerRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
   const editable = profile.editableFields[kind];
   const entries = content.state[kind];
   const title = sectionCopy[kind === "resourcePacks" ? "resource-packs" : kind].title;
+
+  useEffect(() => {
+    let cancelled = false;
+    const missing = entries.filter((entry) => entry.source === "user" && entry.projectId && !entry.iconUrl);
+    for (const entry of missing) {
+      void getProjectIcon(entry.projectId!).then((iconUrl) => {
+        if (!cancelled && iconUrl) content.patch(kind, entry.id, { iconUrl });
+      });
+    }
+    return () => { cancelled = true; };
+  }, [kind, profile.id, entries.map((entry) => `${entry.id}:${entry.iconUrl ?? ""}`).join("|")]);
 
   const loadProjects = async (search = "", reset = true) => {
     if (loadingRef.current) return;
@@ -102,10 +116,30 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     setInstalling(project.project_id);
     try {
       const file = await getInstallableVersion(project.project_id, kind, profile);
-      if (isTauri()) await invoke("download_content_file", { profileId: profile.id, kind, url: file.url, fileName: file.fileName });
-      content.add(kind, createUserContent(project.title, file.fileName, project.project_id, file.version));
+      if (isTauri()) await invoke("download_content_file", { profileId: profile.id, kind, url: file.url, fileName: file.fileName, previousFileName: null });
+      content.add(kind, createUserContent(project.title, file.fileName, project.project_id, file.version, project.icon_url ?? undefined));
     } catch (error) { console.error(error); }
     finally { setInstalling(null); }
+  };
+
+  const openVersionPicker = async (entry: ManagedContentEntry) => {
+    if (!editable || entry.required || entry.source !== "user" || !entry.projectId) return;
+    if (versionTarget === entry.id) { setVersionTarget(null); return; }
+    setVersionTarget(entry.id); setVersionOptions([]); setVersionBusy(true);
+    try { setVersionOptions(await getInstallableVersions(entry.projectId, kind, profile)); }
+    catch (error) { console.error(error); }
+    finally { setVersionBusy(false); }
+  };
+
+  const changeVersion = async (entry: ManagedContentEntry, option: ModrinthVersionOption) => {
+    if (!editable || entry.required || entry.source !== "user" || !entry.projectId || versionBusy) return;
+    setVersionBusy(true);
+    try {
+      if (isTauri()) await invoke("download_content_file", { profileId: profile.id, kind, url: option.url, fileName: option.fileName, previousFileName: entry.fileName ?? null });
+      content.patch(kind, entry.id, { version: option.version, fileName: option.fileName, url: option.url });
+      setVersionTarget(null);
+    } catch (error) { console.error(error); }
+    finally { setVersionBusy(false); }
   };
 
   const openProject = (project: ModrinthProject) => {
@@ -117,16 +151,22 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   return (
     <div className="content-manager" ref={managerRef}>
       <div className="content-list">
-        {entries.length ? entries.map((entry) => (
-          <div className={`content-row${entry.enabled ? "" : " is-disabled"}`} key={entry.id}>
-            <span className="content-indicator" />
-            <div className="content-name"><strong>{entry.name}</strong><small>{entry.version} · {entry.source === "server" ? "서버 관리" : "사용자 추가"}</small></div>
-            {entry.source === "server" ? <span className="managed-badge">잠김</span> : <>
-              <button className={`toggle${entry.enabled ? " is-on" : ""}`} type="button" onClick={() => content.toggle(kind, entry.id)} disabled={!editable} aria-label={`${entry.name} ${entry.enabled ? "끄기" : "켜기"}`}><span /></button>
-              <button className="remove-content" type="button" onClick={() => content.remove(kind, entry.id)} disabled={!editable} aria-label={`${entry.name} 제거`}>×</button>
-            </>}
-          </div>
-        )) : <div className="section-empty">등록된 {title}가 없습니다.</div>}
+        {entries.length ? entries.map((entry) => {
+          const canChangeVersion = editable && !entry.required && entry.source === "user" && Boolean(entry.projectId);
+          return <Fragment key={entry.id}>
+            <div className={`content-row${entry.enabled ? "" : " is-disabled"}`}>
+              {entry.iconUrl ? <img className="content-icon" src={entry.iconUrl} alt="" loading="lazy" decoding="async" /> : <span className={`content-icon content-icon-fallback is-${kind}`} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5m-5 3h5"/></svg></span>}
+              <div className="content-name"><strong>{entry.name}</strong><small><button className="content-version" type="button" disabled={!canChangeVersion} onClick={() => void openVersionPicker(entry)}>{entry.version}</button><span> · {entry.source === "server" ? "서버 관리" : entry.required ? "필수" : "사용자 추가"}</span></small></div>
+              {entry.source === "server" ? <span className="managed-badge">잠김</span> : <>
+                <button className={`toggle${entry.enabled ? " is-on" : ""}`} type="button" onClick={() => content.toggle(kind, entry.id)} disabled={!editable || entry.required} aria-label={`${entry.name} ${entry.enabled ? "끄기" : "켜기"}`}><span /></button>
+                <button className="remove-content" type="button" onClick={() => content.remove(kind, entry.id)} disabled={!editable || entry.required} aria-label={`${entry.name} 제거`}>×</button>
+              </>}
+            </div>
+            {versionTarget === entry.id && <div className="version-picker">
+              {versionBusy && !versionOptions.length ? <span>버전 불러오는 중...</span> : versionOptions.length ? versionOptions.map((option) => <button className={option.version === entry.version ? "selected" : ""} type="button" key={option.id} disabled={versionBusy || option.version === entry.version} onClick={() => void changeVersion(entry, option)}><strong>{option.version}</strong><small>{option.fileName}</small></button>) : <span>선택 가능한 호환 버전이 없습니다.</span>}
+            </div>}
+          </Fragment>;
+        }) : <div className="section-empty">등록된 {title}가 없습니다.</div>}
       </div>
 
       {editable ? <>
@@ -262,7 +302,7 @@ function SettingsPanel({ profile, account, onLogout, appUpdate }: { profile: Lau
       <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
       <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
     </article>
-    <article><span>정보</span><strong>zzapcho Launcher 0.3.4</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article><span>정보</span><strong>zzapcho Launcher 0.3.5</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <JavaSetting profile={profile} />
     <footer>made by zzapcho</footer>
   </div>;

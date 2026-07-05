@@ -477,6 +477,7 @@ async fn download_content_file(
     kind: String,
     url: String,
     file_name: String,
+    previous_file_name: Option<String>,
 ) -> Result<String, String> {
     let parsed = reqwest::Url::parse(&url).map_err(|error| error.to_string())?;
     if parsed.scheme() != "https" || parsed.host_str() != Some("cdn.modrinth.com") {
@@ -491,6 +492,16 @@ async fn download_content_file(
     let destination = content_folder(&app, &profile_id, &kind)?.join(safe_segment(&file_name));
     let bytes = response.bytes().await.map_err(|error| error.to_string())?;
     fs::write(&destination, bytes).map_err(|error| error.to_string())?;
+    if let Some(previous) = previous_file_name.filter(|previous| previous != &file_name) {
+        let folder = content_folder(&app, &profile_id, &kind)?;
+        let previous = folder.join(safe_segment(&previous));
+        let disabled = PathBuf::from(format!("{}.disabled", previous.display()));
+        for path in [previous, disabled] {
+            if path.exists() {
+                fs::remove_file(path).map_err(|error| error.to_string())?;
+            }
+        }
+    }
     Ok(destination.to_string_lossy().into_owned())
 }
 

@@ -21,5 +21,6 @@ export function useProfileContent(profile: LauncherProfile) {
     add: (kind: ContentKind, entry: ManagedContentEntry) => update(kind, (entries) => entries.some((item) => item.id === entry.id) ? entries : [...entries, entry]),
     toggle: (kind: ContentKind, id: string) => update(kind, (entries) => entries.map((entry) => entry.id === id && entry.source === "user" ? { ...entry, enabled: !entry.enabled } : entry)),
     remove: (kind: ContentKind, id: string) => update(kind, (entries) => entries.filter((entry) => entry.id !== id || entry.source === "server")),
+    patch: (kind: ContentKind, id: string, patch: Partial<ManagedContentEntry>) => update(kind, (entries) => entries.map((entry) => entry.id === id && entry.source === "user" ? { ...entry, ...patch } : entry)),
   };
 }
