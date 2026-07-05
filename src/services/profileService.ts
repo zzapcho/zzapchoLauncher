@@ -11,16 +11,25 @@ function isProfile(value: unknown): value is LauncherProfile {
   return typeof candidate.id === "string" && typeof candidate.name === "string" && typeof candidate.accentColor === "string";
 }
 
+function normalizeProfile(profile: LauncherProfile): LauncherProfile {
+  return {
+    ...profile,
+    javaVersion: profile.javaVersion ?? 21,
+    defaultServer: profile.defaultServer ?? { name: "Server", address: "localhost", port: 25565 },
+    editableFields: { server: false, ...profile.editableFields },
+  };
+}
+
 export async function loadProfiles(): Promise<LauncherProfile[]> {
   if (PROFILE_MANIFEST_URL) {
     try {
       const response = await fetch(`${PROFILE_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`Manifest request failed: ${response.status}`);
       const manifest: unknown = await response.json();
-      if (Array.isArray(manifest) && manifest.every(isProfile)) return manifest;
+      if (Array.isArray(manifest) && manifest.every(isProfile)) return manifest.map(normalizeProfile);
     } catch (error) {
       console.warn("원격 manifest를 불러오지 못해 로컬 프로필을 사용합니다.", error);
     }
   }
-  return localProfiles as LauncherProfile[];
+  return (localProfiles as LauncherProfile[]).map(normalizeProfile);
 }
