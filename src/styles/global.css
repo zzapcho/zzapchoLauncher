@@ -93,7 +93,7 @@ button { font: inherit; }
 .window-action.maximize span { width: 10px; height: 10px; border: 1px solid currentColor; border-radius: 2px; }
 .window-action.close span { margin-top: -2px; font-size: 20px; font-weight: 200; line-height: 1; }
 
-.launcher-menu { position: absolute; top: 10px; left: 10px; width: var(--control-size); height: var(--control-size); }
+.launcher-menu { position: absolute; top: 10px; left: 10px; width: var(--control-size); height: var(--control-size); opacity: 1; visibility: visible; transition: opacity .16s ease, visibility 0s linear 0s; }
 .menu-control { position: absolute; z-index: 2; inset: 0; }
 .menu-control span { position: absolute; width: 13px; height: 1.5px; border-radius: 2px; background: currentColor; transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .16s ease; }
 .menu-control span:first-child { transform: translateY(-4px); }
@@ -201,11 +201,10 @@ button { font: inherit; }
 .section-panel header { flex: none; margin: 0 0 14px; text-align: center; }
 .section-panel header h2 { margin: 0; font-size: 22px; letter-spacing: -.035em; }
 .section-panel header span { display: block; margin-top: 5px; color: rgba(255,255,255,.48); font-size: 9px; }
-.content-manager { display: block; flex: 1 1 0; min-height: 0; overflow-x: hidden; overflow-y: scroll; overscroll-behavior: contain; padding: 1px 2px 16px; scrollbar-width: thin; }
+.content-manager { display: block; flex: 1 1 0; width: 100%; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 1px 2px 16px; scrollbar-gutter: stable; scrollbar-width: thin; }
 .content-manager > * + * { margin-top: 12px; }
 .content-list { display: grid; gap: 7px; }
 .content-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 9px; min-height: 49px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 13px; background: rgba(8,12,9,.48); transition: opacity .18s ease, transform .18s ease, background .18s ease; }
-.content-row, .modrinth-results article { content-visibility: auto; contain-intrinsic-size: auto 49px; }
 .content-row.is-disabled { opacity: .48; }
 .content-row:hover { background: rgba(24,30,25,.72); }
 .content-name { min-width: 0; }
@@ -227,12 +226,12 @@ button { font: inherit; }
 .content-toolbar form { display: flex; min-width: 0; height: 36px; border: 1px solid rgba(255,255,255,.16); border-radius: 12px; overflow: hidden; background: rgba(8,12,9,.55); }
 .content-toolbar input { min-width: 0; flex: 1; padding: 0 10px; border: 0; outline: 0; color: #fff; background: transparent; font-size: 9px; }
 .content-toolbar form button { width: 46px; border: 0; color: rgba(255,255,255,.72); background: rgba(255,255,255,.08); cursor: pointer; font-size: 9px; }
-.modrinth-section { display: grid; gap: 7px; }
+.modrinth-section { display: grid; width: 100%; min-width: 0; gap: 7px; }
 .modrinth-heading { display: flex; align-items: baseline; gap: 7px; padding: 0 2px; }
 .modrinth-heading strong { font-size: 11px; }
 .modrinth-heading span { color: rgba(255,255,255,.4); font-size: 8px; }
-.modrinth-results { display: grid; gap: 6px; }
-.modrinth-results article { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 47px; padding: 7px 8px; border-radius: 12px; background: rgba(8,12,9,.45); }
+.modrinth-results { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; gap: 6px; }
+.modrinth-results article { contain: layout paint; display: grid; grid-template-columns: 31px minmax(0, 1fr) auto; align-items: center; width: 100%; min-width: 0; gap: 9px; min-height: 47px; padding: 7px 8px; border-radius: 12px; background: rgba(8,12,9,.45); }
 .modrinth-results img, .project-placeholder { width: 31px; height: 31px; border-radius: 9px; background: rgba(255,255,255,.08); object-fit: cover; }
 .modrinth-results img, .project-placeholder { cursor: pointer; transition: transform .15s ease; }
 .modrinth-results img:hover, .project-placeholder:hover { transform: scale(1.06); }
@@ -306,18 +305,15 @@ button { font: inherit; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
-@media (min-width: 760px) {
-  .launcher-shell { padding-left: 190px; }
-  .launcher-menu { display: none; }
-  .desktop-sidebar { opacity: 1; transform: translateX(0); visibility: visible; pointer-events: auto; transition-delay: 0s; }
-  .desktop-sidebar nav { display: grid; gap: 4px; }
-  .desktop-sidebar nav button { display: flex; align-items: center; gap: 11px; width: 100%; height: 39px; padding: 0 12px; border: 0; border-radius: 10px; color: rgba(255,255,255,.6); background: transparent; cursor: pointer; text-align: left; font-size: 12px; transition: color .14s ease, background .14s ease; }
-  .desktop-sidebar nav button:hover { color: #fff; background: rgba(255,255,255,.07); }
-  .desktop-sidebar nav button.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); font-weight: 700; }
-  .section-panel { width: min(100% - 48px, 640px); }
-  .section-panel { width: 100%; padding: 4px 28px 24px; }
-  .content-manager { width: min(100%, 760px); margin: 0 auto; }
-}
+.launcher-shell.is-wide { padding-left: 190px; }
+.launcher-shell.is-wide .launcher-menu { opacity: 0; visibility: hidden; pointer-events: none; transition-delay: 0s, .16s; }
+.launcher-shell.is-wide .desktop-sidebar { opacity: 1; transform: translateX(0); visibility: visible; pointer-events: auto; transition-delay: 0s; }
+.desktop-sidebar nav { display: grid; gap: 4px; }
+.desktop-sidebar nav button { display: flex; align-items: center; gap: 11px; width: 100%; height: 39px; padding: 0 12px; border: 0; border-radius: 10px; color: rgba(255,255,255,.6); background: transparent; cursor: pointer; text-align: left; font-size: 12px; transition: color .14s ease, background .14s ease; }
+.desktop-sidebar nav button:hover { color: #fff; background: rgba(255,255,255,.07); }
+.desktop-sidebar nav button.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); font-weight: 700; }
+.launcher-shell.is-wide .section-panel { width: 100%; padding: 4px 28px 24px; }
+.launcher-shell.is-wide .content-manager { width: min(100%, 760px); margin: 0 auto; }
 @media (max-height: 520px) {
   .profile-copy { min-height: 96px; }
   .profile-copy h2 { font-size: 24px; }

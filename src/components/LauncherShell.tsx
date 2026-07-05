@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { useAccentColor } from "../hooks/useAccentColor";
 import { launchProfile } from "../services/launchService";
 import type { LauncherProfile, LaunchStatus } from "../types/profile";
@@ -24,10 +25,25 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
   const [status, setStatus] = useState<LaunchStatus>("idle");
   const [activeSection, setActiveSection] = useState<LauncherSection>("home");
   const [switchingProfile, setSwitchingProfile] = useState(false);
+  const [wideLayout, setWideLayout] = useState(() => window.innerWidth >= 780);
   const transitionTimers = useRef<number[]>([]);
-  const busy = !["idle", "stub", "error"].includes(status);
+  const busy = !["idle", "error"].includes(status);
 
   useEffect(() => () => transitionTimers.current.forEach(window.clearTimeout), []);
+  useEffect(() => {
+    let frame = 0;
+    const updateLayout = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setWideLayout((current) => current ? window.innerWidth >= 730 : window.innerWidth >= 790));
+    };
+    window.addEventListener("resize", updateLayout);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", updateLayout); };
+  }, []);
+  useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+    const unlisten = listen("game-exited", () => setStatus("idle"));
+    return () => { void unlisten.then((dispose) => dispose()); };
+  }, []);
   useEffect(() => {
     const returnHome = (event: KeyboardEvent) => {
       if (event.key === "Escape" && activeSection !== "home") setActiveSection("home");
@@ -41,10 +57,10 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
 
   const handleLaunch = async () => {
     try {
-      const result = await launchProfile(selectedProfile, (progress) => {
+      const result = await launchProfile(selectedProfile, account, (progress) => {
         setStatus(progress.status);
       });
-      setStatus("stub");
+      setStatus("running");
       console.info(result.message);
     } catch (error) {
       console.error(error);
@@ -65,7 +81,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
   };
 
   return (
-    <main className={`launcher-shell${switchingProfile ? " is-profile-switching" : ""}`} style={{ "--accent": accent, "--background": background } as React.CSSProperties}>
+    <main className={`launcher-shell${switchingProfile ? " is-profile-switching" : ""}${wideLayout ? " is-wide" : ""}`} style={{ "--accent": accent, "--background": background } as React.CSSProperties}>
       <div className="edge-distortion" aria-hidden="true" />
       <WindowControls activeSection={activeSection} onNavigate={setActiveSection} />
 

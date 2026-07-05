@@ -12,9 +12,13 @@ npm run tauri:build
 
 ## Microsoft 로그인
 
-로그인 버튼을 누르면 Minecraft 기본 런처처럼 기본 브라우저에 Microsoft 계정 선택 화면이 열리고, 완료되면 런처로 돌아옵니다. `zzapcho-online`과 동일하게 Mojang 공개 클라이언트와 Xbox Live 인증을 사용하며 별도의 Client ID 입력은 필요하지 않습니다. 계정 표시 정보는 로컬 저장소에, 갱신 토큰은 Windows 자격 증명 관리자에 저장됩니다.
+로그인 버튼을 누르면 기본 브라우저에 Microsoft 기기 로그인 화면이 열립니다. 런처에 표시된 코드를 입력하면 Xbox Live와 Minecraft Services 인증을 완료합니다. 별도의 Client ID 입력은 필요하지 않습니다. 계정 표시 정보는 로컬 저장소에, 갱신 토큰은 Windows 자격 증명 관리자에 저장되며 다음 실행부터 자동으로 세션을 복원합니다.
 
-현재 계정 인증과 Minecraft Services 프로필 조회까지 연결되어 있습니다. 게임 파일 설치, Java 탐색 및 실제 Minecraft 프로세스 실행은 아직 mock 상태입니다.
+## Minecraft 실행과 Java
+
+PLAY를 누르면 프로필의 Minecraft 및 Fabric/Quilt/Forge 파일을 확인·설치한 뒤 실제 Java 프로세스를 실행합니다. 게임의 stdout/stderr는 런처의 게임 로그 탭에 실시간으로 표시됩니다.
+
+Java 런타임 관리는 `src-tauri/src/java_runtime.rs`로 분리되어 있습니다. 프로필의 `javaVersion` 값이 있으면 해당 버전을 사용하고, 없으면 Minecraft 버전에 맞춰 Java 8/17/21을 선택합니다. 설치된 런타임이 없으면 Eclipse Temurin JRE를 앱 데이터 폴더에 자동 설치합니다. 향후 콘솔에서도 `ensure_java_runtime` 명령과 같은 모듈을 재사용할 수 있습니다.
 
 ## 프로필과 콘텐츠
 

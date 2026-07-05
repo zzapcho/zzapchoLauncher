@@ -1,5 +1,8 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { LauncherProfile, LaunchResult, LaunchStatus } from "../types/profile";
-import { validateProfileContent } from "./contentService";
+import type { LauncherAccount } from "../types/auth";
+import { getProfileContent, validateProfileContent } from "./contentService";
+import { getUserSettings } from "../hooks/useUserSettings";
 import { appendLog, resetGameLogs } from "./logService";
 
 export interface LaunchProgress {
@@ -7,37 +10,41 @@ export interface LaunchProgress {
   message: string;
 }
 
-const wait = (duration: number) => new Promise<void>((resolve) => window.setTimeout(resolve, duration));
-
 export async function launchProfile(
   profile: LauncherProfile,
+  account: LauncherAccount,
   onProgress?: (progress: LaunchProgress) => void,
 ): Promise<LaunchResult> {
   resetGameLogs();
   appendLog("launcher", `${profile.name} 실행 요청`);
-  appendLog("game", "새 게임 세션 로그 시작");
   const contentValidation = validateProfileContent(profile);
   if (!contentValidation.valid) {
     throw new Error(contentValidation.issues.join("\n"));
   }
-  const steps: LaunchProgress[] = [
-    { status: "preparing", message: "준비 중..." },
-    { status: "checking-profile", message: "프로필 확인 중..." },
-    { status: "checking-content", message: "모드와 리소스팩 확인 중..." },
-    { status: "ready", message: "실행 준비 완료" },
-  ];
-
-  for (const step of steps) {
-    onProgress?.(step);
-    appendLog("launcher", step.message);
-    await wait(500);
-  }
-
-  console.info("[zzapcho Launcher] launch stub", {
-    profile,
-    enabledContent: contentValidation.enabled,
-    futureLaunchPipeline: ["Microsoft 인증", "Java 확인", "게임/로더 설치", "콘텐츠 동기화", "서버 등록", "Minecraft 프로세스 실행"],
+  onProgress?.({ status: "preparing", message: "Java와 게임 파일 확인 중..." });
+  appendLog("launcher", "Java와 게임 파일 확인 중...");
+  const settings = getUserSettings();
+  const requestedMemory = Math.round(settings.memoryGb * 1024);
+  const maxMemoryMb = Math.max(profile.launchOptions.minMemoryMb, Math.min(profile.launchOptions.maxMemoryMb, requestedMemory));
+  const allContent = getProfileContent(profile);
+  const content = (Object.entries(allContent) as Array<[keyof typeof allContent, typeof allContent.mods]>).flatMap(([kind, entries]) =>
+    entries.filter((entry) => entry.source === "user" && entry.fileName).map((entry) => ({ kind, fileName: entry.fileName!, enabled: entry.enabled })),
+  );
+  const result = await invoke<{ processId: number }>("launch_minecraft", {
+    request: {
+      profileId: profile.id,
+      minecraftVersion: profile.minecraftVersion,
+      modLoader: profile.modLoader,
+      modLoaderVersion: profile.modLoaderVersion,
+      javaVersion: profile.javaVersion,
+      minMemoryMb: Math.min(profile.launchOptions.minMemoryMb, maxMemoryMb),
+      maxMemoryMb,
+      javaArgs: profile.launchOptions.javaArgs,
+      content,
+      account,
+    },
   });
-
-  return { success: true, message: "아직 실제 실행은 연결되지 않았어요.", profileId: profile.id };
+  onProgress?.({ status: "running", message: "Minecraft 실행 중" });
+  appendLog("launcher", `Minecraft 프로세스 시작 (PID ${result.processId})`);
+  return { success: true, message: "Minecraft를 실행했습니다.", profileId: profile.id };
 }

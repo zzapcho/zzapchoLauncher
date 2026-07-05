@@ -28,6 +28,7 @@ export interface LauncherProfile {
   minecraftVersion: string;
   modLoader: ModLoader;
   modLoaderVersion: string;
+  javaVersion?: number;
   mods: ContentEntry[];
   resourcePacks: ContentEntry[];
   shaders: ContentEntry[];
@@ -39,7 +40,7 @@ export interface LauncherProfile {
   };
 }
 
-export type LaunchStatus = "idle" | "preparing" | "checking-profile" | "checking-content" | "ready" | "stub" | "error";
+export type LaunchStatus = "idle" | "preparing" | "checking-profile" | "checking-content" | "ready" | "running" | "error";
 
 export interface LaunchResult {
   success: boolean;

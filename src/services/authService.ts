@@ -40,8 +40,7 @@ export async function loginWithMicrosoft(onCode: (info: DeviceCodeInfo) => void)
 
 export async function restoreAccount(): Promise<LauncherAccount | null> {
   const stored = getStoredAccount();
-  if (!stored) return null;
-  if (stored.kind === "preview") return stored;
+  if (stored?.kind === "preview") return stored;
   if (!isTauri()) return null;
   const account = await invoke<LauncherAccount | null>("restore_microsoft_account");
   if (account) saveAccount(account);

@@ -2,6 +2,9 @@ use std::{fs, path::{Path, PathBuf}, process::Command};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
+mod java_runtime;
+mod minecraft;
+
 const MICROSOFT_CLIENT_ID: &str = "00000000402b5328";
 const MICROSOFT_SCOPE: &str = "XboxLive.signin offline_access";
 
@@ -91,7 +94,7 @@ async fn exchange_for_minecraft(token: MicrosoftToken, previous_refresh: Option<
     Ok(LauncherAccount { id, name, skin_url, kind: "microsoft", minecraft_access_token })
 }
 
-fn safe_segment(value: &str) -> String {
+pub(crate) fn safe_segment(value: &str) -> String {
     value.chars().map(|character| {
         if character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.') { character } else { '_' }
     }).collect()
@@ -242,7 +245,7 @@ async fn download_content_file(app: tauri::AppHandle, profile_id: String, kind: 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open_content_folder, open_game_folder, open_external_url, begin_microsoft_device_login, poll_microsoft_device_login, restore_microsoft_account, store_auth_secret, load_auth_secret, delete_auth_secret, install_content_file, download_content_file])
+        .invoke_handler(tauri::generate_handler![open_content_folder, open_game_folder, open_external_url, begin_microsoft_device_login, poll_microsoft_device_login, restore_microsoft_account, store_auth_secret, load_auth_secret, delete_auth_secret, install_content_file, download_content_file, java_runtime::ensure_java_runtime, minecraft::launch_minecraft])
         .run(tauri::generate_context!())
         .expect("error while running zzapcho Launcher");
 }
