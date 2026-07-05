@@ -108,6 +108,16 @@ Write-Step "Creating source backup"
 Invoke-Checked "powershell.exe" @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts\backup.ps1", "-BackupName", "release-v$Version")
 
 Write-Step "Building signed Windows installers"
+$BuiltExecutable = Join-Path $ProjectRoot "src-tauri\target\release\zzapcho-launcher.exe"
+Get-Process -Name "zzapcho-launcher" -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -eq $BuiltExecutable } |
+    Stop-Process -Force
+$BundleRoot = Join-Path $ProjectRoot "src-tauri\target\release\bundle"
+if (Test-Path -LiteralPath $BundleRoot) {
+    Get-ChildItem -LiteralPath $BundleRoot -Recurse -File |
+        Where-Object { $_.Name -like "*${Version}*" -or $_.Name -eq "latest.json" } |
+        Remove-Item -Force -ErrorAction Stop
+}
 $tauriConfig = [IO.File]::ReadAllText($ConfigPath)
 $buildConfig = $tauriConfig -replace '"createUpdaterArtifacts"\s*:\s*true', '"createUpdaterArtifacts": false'
 if ($buildConfig -eq $tauriConfig) { throw "Could not disable automatic updater signing for the build." }
@@ -119,7 +129,6 @@ finally {
     [IO.File]::WriteAllText($ConfigPath, $tauriConfig, [Text.UTF8Encoding]::new($false))
 }
 
-$BundleRoot = Join-Path $ProjectRoot "src-tauri\target\release\bundle"
 $Nsis = Get-ChildItem -LiteralPath (Join-Path $BundleRoot "nsis") -Filter "*_${Version}_x64-setup.exe" | Select-Object -First 1
 $Msi = Get-ChildItem -LiteralPath (Join-Path $BundleRoot "msi") -Filter "*_${Version}_x64_*.msi" | Select-Object -First 1
 if (!$Nsis) { throw "NSIS installer was not created for v$Version." }
@@ -159,8 +168,15 @@ Invoke-Checked $Git @("commit", "-m", "Release v$Version")
 Invoke-Checked $Git @("push", "origin", $Branch)
 
 Write-Step "Publishing GitHub Release $Tag"
-& $Gh release view $Tag --repo $Repository *> $null
-if ($LASTEXITCODE -eq 0) {
+$releaseExists = $false
+try {
+    & $Gh release view $Tag --repo $Repository 2>$null | Out-Null
+    $releaseExists = $LASTEXITCODE -eq 0
+}
+catch {
+    $releaseExists = $false
+}
+if ($releaseExists) {
     Invoke-Checked $Gh @("release", "upload", $Tag, "--repo", $Repository, "--clobber", $ReleaseInstaller, $ReleaseSignature, $ReleaseMsi, $ManifestPath)
     Invoke-Checked $Gh @("release", "edit", $Tag, "--repo", $Repository, "--target", $Branch, "--title", "zzapcho Launcher $Tag", "--notes", "Windows installer and signed automatic update package.")
 }
