@@ -1,0 +1,57 @@
+[
+  {
+    "id": "zzapcho-smp",
+    "name": "zzapcho SMP",
+    "description": "친구들이랑 즐기는 기본 야생 서버",
+    "customText": "오늘도 야생으로 떠나볼까요?",
+    "backgroundImage": "/backgrounds/default.svg",
+    "accentColor": "#8fe388",
+    "minecraftVersion": "1.21.1",
+    "modLoader": "fabric",
+    "modLoaderVersion": "0.16.9",
+    "defaultServer": { "name": "zzapcho SMP", "address": "smp.je.zzapcho.kr", "port": 25565 },
+    "mods": [{ "id": "fabric-api", "name": "Fabric API", "version": "0.102.0", "required": true, "url": "" }],
+    "resourcePacks": [],
+    "shaders": [],
+    "editableFields": { "server": false, "mods": false, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
+    "launchOptions": { "minMemoryMb": 2048, "maxMemoryMb": 4096, "javaArgs": [] }
+  },
+  {
+    "id": "creative-lab",
+    "name": "Creative Lab",
+    "description": "건축과 아이디어를 빠르게 실험하는 공간",
+    "customText": "상상한 걸 바로 세워보세요.",
+    "backgroundImage": "/backgrounds/creative.svg",
+    "accentColor": "#75c9ff",
+    "minecraftVersion": "1.21.1",
+    "modLoader": "vanilla",
+    "modLoaderVersion": "",
+    "defaultServer": { "name": "Creative Lab", "address": "mc.zzapcho.kr", "port": 25565 },
+    "mods": [],
+    "resourcePacks": [],
+    "shaders": [],
+    "editableFields": { "server": false, "mods": false, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
+    "launchOptions": { "minMemoryMb": 1024, "maxMemoryMb": 3072, "javaArgs": [] }
+  },
+  {
+    "id": "modded-test",
+    "name": "Modded Test",
+    "description": "새로운 모드 조합을 안전하게 시험하는 프로필",
+    "customText": "조금 이상해야 재미있는 실험실.",
+    "backgroundImage": "/backgrounds/modded.svg",
+    "accentColor": "#d9a5ff",
+    "minecraftVersion": "1.20.1",
+    "modLoader": "fabric",
+    "modLoaderVersion": "0.15.11",
+    "defaultServer": { "name": "Modded Test", "address": "test.zzapcho.kr", "port": 25565 },
+    "mods": [
+      { "id": "fabric-api", "name": "Fabric API", "version": "0.92.2", "required": true, "url": "" },
+      { "id": "sodium", "name": "Sodium", "version": "0.5.11", "required": true, "url": "" },
+      { "id": "lithium", "name": "Lithium", "version": "0.11.2", "required": false, "url": "" }
+    ],
+    "resourcePacks": [],
+    "shaders": [],
+    "editableFields": { "server": false, "mods": false, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
+    "launchOptions": { "minMemoryMb": 3072, "maxMemoryMb": 6144, "javaArgs": ["-XX:+UseG1GC"] }
+  }
+]

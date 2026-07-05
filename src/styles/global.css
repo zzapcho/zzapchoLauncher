@@ -1,0 +1,96 @@
+:root {
+  font-family: Inter, Pretendard, "Segoe UI", sans-serif;
+  color: #fff;
+  background: #0c100d;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+button { font: inherit; }
+
+.launcher-shell {
+  --accent: #8fe388;
+  --background: linear-gradient(160deg, #203a28, #08100a);
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  width: 100%;
+  min-height: 100%;
+  padding: 22px 20px 18px;
+  overflow: hidden;
+  background-image: var(--background);
+  background-size: cover;
+  background-position: center;
+  transition: background-image .45s ease;
+}
+
+.launcher-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(circle at 50% 42%, transparent 0 10%, rgba(0, 0, 0, .18) 48%, rgba(0, 0, 0, .55) 100%);
+  pointer-events: none;
+}
+
+.ambient-light { position: absolute; z-index: -1; width: 230px; height: 230px; left: 50%; top: 32%; translate: -50% -50%; background: var(--accent); opacity: .12; filter: blur(70px); transition: background .35s ease; }
+.launcher-header { display: flex; align-items: center; gap: 10px; z-index: 2; }
+.brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(255,255,255,.26); border-radius: 11px; background: rgba(255,255,255,.1); box-shadow: inset 0 1px rgba(255,255,255,.22); backdrop-filter: blur(15px); }
+.brand-mark span { color: var(--accent); font-size: 22px; font-weight: 900; line-height: 1; transition: color .35s ease; }
+.launcher-header p, .launcher-header h1 { margin: 0; }
+.launcher-header p { color: rgba(255,255,255,.55); font-size: 8px; font-weight: 800; letter-spacing: .23em; }
+.launcher-header h1 { margin-top: -2px; font-size: 15px; letter-spacing: -.02em; }
+.online-chip { display: flex; align-items: center; gap: 5px; margin-left: auto; padding: 6px 9px; border: 1px solid rgba(255,255,255,.13); border-radius: 99px; color: rgba(255,255,255,.65); background: rgba(0,0,0,.16); font-size: 8px; font-weight: 750; letter-spacing: .08em; backdrop-filter: blur(10px); }
+.online-chip span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+.hero { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; padding-top: 35px; text-align: center; }
+.profile-copy { width: 100%; max-width: 335px; min-height: 116px; }
+.eyebrow { margin: 0 0 9px; color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .17em; text-transform: uppercase; text-shadow: 0 1px 12px rgba(0,0,0,.8); transition: color .35s ease; }
+.profile-copy h2 { display: -webkit-box; margin: 0; overflow: hidden; font-size: 28px; line-height: 1.12; letter-spacing: -.055em; text-shadow: 0 3px 20px rgba(0,0,0,.55); -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.description { margin: 10px 0 0; color: rgba(255,255,255,.6); font-size: 11px; line-height: 1.4; text-shadow: 0 2px 8px #000; }
+.play-button { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; width: 142px; height: 74px; margin: 4px 0 13px; border: 1px solid color-mix(in srgb, var(--accent) 65%, white 35%); border-radius: 25px; color: #071009; background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 75%, white 25%), var(--accent)); box-shadow: 0 16px 50px color-mix(in srgb, var(--accent) 28%, transparent), inset 0 1px rgba(255,255,255,.65), 0 2px 0 color-mix(in srgb, var(--accent) 55%, black 45%); cursor: pointer; font-size: 16px; font-weight: 900; letter-spacing: .09em; transition: transform .18s ease, filter .18s ease, box-shadow .35s ease; }
+.play-button::before { content: ""; position: absolute; inset: 5px; border: 1px solid rgba(255,255,255,.2); border-radius: 20px; pointer-events: none; }
+.play-button:hover:not(:disabled) { transform: translateY(-3px) scale(1.025); filter: brightness(1.07); }
+.play-button:active:not(:disabled) { transform: translateY(1px) scale(.985); }
+.play-button:disabled { cursor: wait; opacity: .75; }
+.play-icon { width: 0; height: 0; margin-left: 3px; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-left: 11px solid #071009; }
+.version-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 99px; color: rgba(255,255,255,.78); background: rgba(7,10,8,.28); box-shadow: inset 0 1px rgba(255,255,255,.09); font-size: 9px; font-weight: 650; backdrop-filter: blur(14px); }
+.version-badge span { color: var(--accent); }
+.status-text { min-height: 14px; margin: 9px 0 0; color: rgba(255,255,255,.48); font-size: 9px; }
+.status-text.is-busy::after { content: ""; display: inline-block; width: 4px; height: 4px; margin-left: 6px; border-radius: 50%; background: var(--accent); animation: pulse .8s infinite alternate; }
+
+.profile-selector { position: relative; z-index: 3; width: 100%; }
+.profile-trigger { display: flex; align-items: center; width: 100%; min-height: 62px; padding: 10px 14px 10px 17px; border: 1px solid rgba(255,255,255,.18); border-radius: 21px; color: #fff; background: linear-gradient(110deg, rgba(255,255,255,.15), rgba(255,255,255,.07)); box-shadow: inset 0 1px rgba(255,255,255,.16), 0 15px 35px rgba(0,0,0,.25); cursor: pointer; text-align: left; backdrop-filter: blur(20px) saturate(130%); transition: transform .18s ease, background .18s ease; }
+.profile-trigger:hover:not(:disabled) { transform: translateY(-2px); background: rgba(255,255,255,.18); }
+.profile-trigger:disabled { opacity: .55; cursor: wait; }
+.trigger-copy { display: flex; flex-direction: column; gap: 2px; }
+.trigger-copy small { color: rgba(255,255,255,.5); font-size: 8px; font-weight: 700; letter-spacing: .08em; }
+.trigger-copy strong { font-size: 14px; letter-spacing: -.02em; }
+.chevron { display: grid; place-items: center; width: 30px; height: 30px; margin-left: auto; border: 1px solid rgba(255,255,255,.13); border-radius: 10px; background: rgba(0,0,0,.17); font-size: 13px; transition: rotate .2s ease; }
+.chevron.open { rotate: 180deg; }
+.profile-menu { position: absolute; right: 0; bottom: calc(100% + 10px); left: 0; padding: 8px; border: 1px solid rgba(255,255,255,.19); border-radius: 22px; background: rgba(12,17,14,.78); box-shadow: 0 20px 50px rgba(0,0,0,.45), inset 0 1px rgba(255,255,255,.12); backdrop-filter: blur(25px) saturate(125%); animation: menu-in .2s ease-out; }
+.profile-menu-label { margin: 3px 8px 7px; color: rgba(255,255,255,.43); font-size: 8px; font-weight: 800; letter-spacing: .1em; }
+.profile-menu button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 10px; border: 0; border-radius: 15px; color: #fff; background: transparent; cursor: pointer; text-align: left; }
+.profile-menu button:hover, .profile-menu button.selected { background: rgba(255,255,255,.09); }
+.profile-menu button strong, .profile-menu button small { display: block; }
+.profile-menu button strong { margin-bottom: 2px; font-size: 11px; }
+.profile-menu button small { overflow: hidden; color: rgba(255,255,255,.45); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 9px currentColor; }
+.check { color: var(--accent); font-size: 12px; }
+
+.empty-state { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 100%; color: rgba(255,255,255,.65); background: radial-gradient(circle at top, #26392a, #0b100c); font-size: 12px; }
+.loader { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.2); border-top-color: #8fe388; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { rotate: 360deg; } }
+@keyframes pulse { to { opacity: .2; transform: scale(.7); } }
+@keyframes menu-in { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+
+@media (max-height: 520px) {
+  .launcher-shell { padding-top: 16px; }
+  .hero { padding-top: 16px; }
+  .profile-copy { min-height: 96px; }
+  .profile-copy h2 { font-size: 24px; }
+  .play-button { height: 66px; }
+}
