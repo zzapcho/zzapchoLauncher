@@ -2,27 +2,53 @@
 
 Tauri 2, React 19, TypeScript로 만든 Minecraft 커스텀 런처입니다.
 
-## 실행과 빌드
+## 개발 실행
 
 ```powershell
 npm install
 npm run tauri:dev
+```
+
+일반 빌드:
+
+```powershell
 npm run tauri:build
 ```
 
+## GitHub Release BAT
+
+배포 파일 경로:
+
+```text
+scripts\release.bat
+```
+
+탐색기에서 `scripts` 폴더를 열고 `release.bat`을 더블클릭하면 됩니다. 실행 후 버전을 입력할 수 있으며, 아무것도 입력하지 않고 Enter를 누르면 현재 버전의 패치 번호가 자동으로 1 증가합니다.
+
+터미널에서도 실행할 수 있습니다.
+
+```powershell
+# 버전 자동 증가
+.\scripts\release.bat
+
+# 버전 직접 지정
+.\scripts\release.bat 0.4.0
+
+# 실제 배포 없이 환경만 검사
+.\scripts\release.bat -ValidateOnly
+```
+
+BAT는 GitHub 동기화, 버전 변경, 의존성 및 빌드 검사, 백업, MSI/NSIS 생성, updater 서명, Git 커밋·푸시, GitHub Release 업로드, `latest.json` 검증을 순서대로 처리합니다.
+
 ## Microsoft 로그인
 
-로그인 버튼을 누르면 기본 브라우저에 Microsoft 기기 로그인 화면이 열립니다. 런처에 표시된 코드를 입력하면 Xbox Live와 Minecraft Services 인증을 완료합니다. 별도의 Client ID 입력은 필요하지 않습니다. 계정 표시 정보는 로컬 저장소에, 갱신 토큰은 Windows 자격 증명 관리자에 저장되며 다음 실행부터 자동으로 세션을 복원합니다.
+로그인 버튼을 누르면 기본 브라우저에서 Microsoft 기기 로그인이 열립니다. 표시되는 코드는 자동으로 클립보드에 복사됩니다. 로그인 세션은 Windows 자격 증명 저장소와 앱 데이터 세션에 저장되며 다음 실행부터 자동으로 복구됩니다.
 
-## Minecraft 실행과 Java
+## Java 설정
 
-PLAY를 누르면 프로필의 Minecraft 및 Fabric/Quilt/Forge 파일을 확인·설치한 뒤 실제 Java 프로세스를 실행합니다. 게임의 stdout/stderr는 런처의 게임 로그 탭에 실시간으로 표시됩니다.
+설정 화면에서 프로필별 Java 실행 파일 경로를 직접 입력할 수 있습니다. `설치된 Java 찾기`를 누르면 시스템의 Java를 검색하고, 프로필에 필요한 Java 버전만 선택 목록에 표시합니다. 호환 버전이 없으면 Eclipse Temurin을 자동으로 다운로드하고 선택할 수 있습니다.
 
-Java 런타임 관리는 `src-tauri/src/java_runtime.rs`로 분리되어 있습니다. 프로필의 `javaVersion` 값이 있으면 해당 버전을 사용하고, 없으면 Minecraft 버전에 맞춰 Java 8/17/21을 선택합니다. 설치된 런타임이 없으면 Eclipse Temurin JRE를 앱 데이터 폴더에 자동 설치합니다. 향후 콘솔에서도 `ensure_java_runtime` 명령과 같은 모듈을 재사용할 수 있습니다.
-
-## 프로필과 콘텐츠
-
-프로필은 `src/data/profiles.json`에서 관리합니다. 선택한 프로필 ID만 로컬 저장소에 보관하며, 모드·리소스팩·셰이더 목록은 프로필별로 분리됩니다. Modrinth 검색 결과는 스크롤 끝에서 추가로 불러옵니다.
+Java 요구 버전은 프로필의 `javaVersion`을 우선 사용하며, 값이 없으면 Minecraft 버전에 맞춰 Java 8/17/21을 결정합니다.
 
 ## 백업
 

@@ -37,6 +37,7 @@ export async function launchProfile(
       modLoader: profile.modLoader,
       modLoaderVersion: profile.modLoaderVersion,
       javaVersion: profile.javaVersion,
+      javaPath: settings.javaPaths[profile.id] || null,
       minMemoryMb: Math.min(profile.launchOptions.minMemoryMb, maxMemoryMb),
       maxMemoryMb,
       javaArgs: profile.launchOptions.javaArgs,

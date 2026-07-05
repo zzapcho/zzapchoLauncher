@@ -1,10 +1,22 @@
 use std::{
+    collections::HashSet,
     fs,
     io::Write,
     path::{Path, PathBuf},
+    process::Command,
 };
 
+use serde::Serialize;
 use tauri::{Emitter, Manager};
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JavaRuntimeInfo {
+    path: String,
+    major: u32,
+    source: String,
+    compatible: bool,
+}
 
 fn emit(app: &tauri::AppHandle, message: impl Into<String>) {
     let _ = app.emit_to("main", "launcher-log", message.into());
@@ -50,6 +62,127 @@ fn find_java(directory: &Path) -> Option<PathBuf> {
         }
     }
     None
+}
+
+fn collect_java(directory: &Path, results: &mut Vec<PathBuf>, depth: usize) {
+    if depth > 5 {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(directory) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_java(&path, results, depth + 1);
+        } else if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case("java.exe"))
+            && path
+                .parent()
+                .and_then(Path::file_name)
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.eq_ignore_ascii_case("bin"))
+        {
+            results.push(path);
+        }
+    }
+}
+
+pub fn java_major(path: &Path) -> Option<u32> {
+    let output = Command::new(path).arg("-version").output().ok()?;
+    let text = String::from_utf8_lossy(&output.stderr);
+    let version = text.split('"').nth(1)?;
+    let first = version.split('.').next()?.parse::<u32>().ok()?;
+    if first == 1 {
+        version.split('.').nth(1)?.parse().ok()
+    } else {
+        Some(first)
+    }
+}
+
+fn add_candidate(
+    path: PathBuf,
+    source: &str,
+    required_major: u32,
+    seen: &mut HashSet<String>,
+    result: &mut Vec<JavaRuntimeInfo>,
+) {
+    if !path.is_file() {
+        return;
+    }
+    let canonical = fs::canonicalize(&path).unwrap_or(path);
+    let key = canonical.to_string_lossy().to_lowercase();
+    if !seen.insert(key) {
+        return;
+    }
+    let Some(major) = java_major(&canonical) else {
+        return;
+    };
+    result.push(JavaRuntimeInfo {
+        path: canonical.to_string_lossy().into_owned(),
+        major,
+        source: source.to_string(),
+        compatible: major == required_major,
+    });
+}
+
+fn discover_java(app_data: &Path, required_major: u32) -> Vec<JavaRuntimeInfo> {
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+
+    if let Ok(java_home) = std::env::var("JAVA_HOME") {
+        add_candidate(
+            PathBuf::from(java_home).join("bin").join("java.exe"),
+            "JAVA_HOME",
+            required_major,
+            &mut seen,
+            &mut result,
+        );
+    }
+    if let Ok(output) = Command::new("where.exe").arg("java.exe").output() {
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            add_candidate(
+                PathBuf::from(line.trim()),
+                "PATH",
+                required_major,
+                &mut seen,
+                &mut result,
+            );
+        }
+    }
+
+    let mut roots = vec![app_data.join("runtime")];
+    for variable in ["ProgramFiles", "ProgramFiles(x86)"] {
+        if let Ok(program_files) = std::env::var(variable) {
+            let base = PathBuf::from(program_files);
+            for vendor in [
+                "Java",
+                "Eclipse Adoptium",
+                "Microsoft",
+                "Zulu",
+                "BellSoft",
+                "Amazon Corretto",
+            ] {
+                roots.push(base.join(vendor));
+            }
+        }
+    }
+    for root in roots {
+        let source = if root.starts_with(app_data) {
+            "런처"
+        } else {
+            "시스템"
+        };
+        let mut paths = Vec::new();
+        collect_java(&root, &mut paths, 0);
+        for path in paths {
+            add_candidate(path, source, required_major, &mut seen, &mut result);
+        }
+    }
+    result.sort_by_key(|runtime| (!runtime.compatible, runtime.major, runtime.path.clone()));
+    result
 }
 
 pub fn ensure_java(app: &tauri::AppHandle, app_data: &Path, major: u32) -> Result<PathBuf, String> {
@@ -127,6 +260,20 @@ pub async fn ensure_java_runtime(app: tauri::AppHandle, major: u32) -> Result<St
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn discover_java_runtimes(
+    app: tauri::AppHandle,
+    required_major: u32,
+) -> Result<Vec<JavaRuntimeInfo>, String> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || discover_java(&app_data, required_major))
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

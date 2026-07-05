@@ -144,14 +144,15 @@ button { font: inherit; }
 .version-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; color: rgba(255,255,255,.78); background: rgba(7,10,8,.48); font-size: 9px; font-weight: 600; backdrop-filter: blur(8px); transition: border-color .15s ease, background .15s ease; }
 .version-badge span { color: var(--accent); }
 .profile-selector { position: relative; z-index: 3; width: 184px; height: 36px; margin: 0 auto; transition: width .28s cubic-bezier(.2,.8,.2,1); }
-.profile-selector.is-open { width: 216px; }
+.profile-selector.is-open, .profile-selector.is-closing { width: 216px; }
 .profile-trigger { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; width: 100%; height: 36px; padding: 0 12px; border: 1px solid rgba(255,255,255,.2); border-bottom: 0; border-radius: var(--surface-radius) var(--surface-radius) 0 0; color: #fff; background: rgba(10,14,11,.82); backdrop-filter: blur(10px); cursor: pointer; text-align: center; transition: opacity .14s ease, transform .24s cubic-bezier(.2,.8,.2,1), width .28s cubic-bezier(.2,.8,.2,1), background .15s ease, border-color .15s ease; }
-.profile-selector.is-open .profile-trigger { opacity: 0; transform: scale(.96); pointer-events: none; }
+.profile-selector.is-open .profile-trigger, .profile-selector.is-closing .profile-trigger { opacity: 0; transform: scale(.96); pointer-events: none; }
 .profile-trigger:hover:not(:disabled) { background: rgba(30,36,31,.96); }
 .profile-trigger:disabled { opacity: .55; cursor: wait; }
 .profile-trigger strong { overflow: hidden; font-size: 11px; font-weight: 650; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
 .profile-menu { position: absolute; right: 0; bottom: 0; left: 0; padding: 6px; border: 1px solid rgba(255,255,255,.2); border-bottom: 0; border-radius: var(--surface-radius) var(--surface-radius) 0 0; background: rgba(17,23,19,.9); box-shadow: 0 -12px 28px rgba(0,0,0,.18); backdrop-filter: blur(12px); clip-path: inset(calc(100% - 36px) 16px 0 round var(--surface-radius) var(--surface-radius) 0 0); opacity: 0; transform-origin: bottom center; pointer-events: none; transition: clip-path .32s cubic-bezier(.18,.82,.2,1), opacity .14s ease; }
 .profile-menu.is-open { clip-path: inset(0 0 0 round var(--surface-radius) var(--surface-radius) 0 0); opacity: 1; pointer-events: auto; }
+.profile-menu.is-closing { clip-path: inset(calc(100% - 36px) 16px 0 round var(--surface-radius) var(--surface-radius) 0 0); opacity: 0; pointer-events: none; transition: clip-path .28s cubic-bezier(.4,0,.7,.2), opacity .08s linear .2s; }
 .profile-menu-label { margin: 3px 8px 7px; color: rgba(255,255,255,.43); font-size: 8px; font-weight: 800; letter-spacing: .1em; }
 .profile-options { max-height: 160px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .profile-menu button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; width: 100%; padding: 8px; border: 0; border-radius: 11px; color: #fff; background: transparent; cursor: pointer; text-align: left; }
@@ -317,14 +318,29 @@ button { font: inherit; }
   content: "";
 }
 
-.settings-grid > article:nth-of-type(4),
-.settings-grid > article:nth-of-type(5) { display: none; }
 .update-setting.is-available {
   border-color: rgba(255,215,94,.32);
   background: rgba(255,205,70,.08);
 }
 .update-setting.is-available > strong { color: #ffd75e; }
 .update-button:disabled { cursor: wait; opacity: .55; }
+.java-setting { gap: 9px !important; }
+.java-setting-heading { display: flex; align-items: center; justify-content: space-between; }
+.java-setting-heading span { color: rgba(255,255,255,.45); font-size: 9px; }
+.java-setting-heading strong { color: var(--accent); font-size: 10px; }
+.java-path-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; }
+.java-path-row input { min-width: 0; height: 31px; padding: 0 10px; border: 1px solid rgba(255,255,255,.13); border-radius: 10px; color: #fff; outline: none; background: rgba(255,255,255,.055); font-size: 9px; }
+.java-path-row input:focus { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.java-path-row button, .java-missing button { height: 31px; padding: 0 11px; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; color: #fff; background: rgba(255,255,255,.075); cursor: pointer; font-size: 8px; }
+.java-path-row button:disabled, .java-missing button:disabled { cursor: wait; opacity: .55; }
+.java-runtime-list { display: grid; max-height: 108px; gap: 5px; overflow-y: auto; }
+.java-runtime-list button { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 8px; min-height: 34px; padding: 6px 9px; border: 1px solid transparent; border-radius: 10px; color: #fff; background: rgba(255,255,255,.045); cursor: pointer; text-align: left; }
+.java-runtime-list button.selected { border-color: color-mix(in srgb, var(--accent) 42%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.java-runtime-list button strong { color: var(--accent); font-size: 9px; }
+.java-runtime-list button span { overflow: hidden; color: rgba(255,255,255,.5); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.java-missing { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; border-radius: 10px; background: rgba(255,193,62,.08); }
+.java-missing span { color: #ffd66d; font-size: 8px; }
+.java-error { color: #ff8d95 !important; }
 
 .update-screen {
   --control-size: 34px;

@@ -13,4 +13,5 @@ export type ProfileContentState = Record<ContentKind, ManagedContentEntry[]>;
 
 export interface LauncherUserSettings {
   memoryGb: number;
+  javaPaths: Record<string, string>;
 }

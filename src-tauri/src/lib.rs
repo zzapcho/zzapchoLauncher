@@ -497,6 +497,7 @@ async fn download_content_file(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -512,6 +513,7 @@ pub fn run() {
             install_content_file,
             download_content_file,
             java_runtime::ensure_java_runtime,
+            java_runtime::discover_java_runtimes,
             minecraft::launch_minecraft
         ])
         .run(tauri::generate_context!())

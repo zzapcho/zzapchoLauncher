@@ -11,6 +11,7 @@ import type { LauncherProfile } from "../types/profile";
 import type { LauncherSection } from "../types/navigation";
 import type { LauncherAccount } from "../types/auth";
 import type { AppUpdateState } from "../hooks/useAppUpdate";
+import { discoverJavaRuntimes, downloadJavaRuntime, recommendedJavaMajor, type JavaRuntimeInfo } from "../services/javaService";
 
 interface SectionPanelProps {
   profile: LauncherProfile;
@@ -195,7 +196,51 @@ function LogsPanel() {
   </div>;
 }
 
-function SettingsPanel({ account, onLogout, appUpdate }: { account: LauncherAccount; onLogout: () => Promise<void>; appUpdate: AppUpdateState }) {
+function JavaSetting({ profile }: { profile: LauncherProfile }) {
+  const { settings, setJavaPath } = useUserSettings();
+  const requiredMajor = profile.javaVersion ?? recommendedJavaMajor(profile.minecraftVersion);
+  const javaPath = settings.javaPaths[profile.id] ?? "";
+  const [runtimes, setRuntimes] = useState<JavaRuntimeInfo[]>([]);
+  const [searched, setSearched] = useState(false);
+  const [busy, setBusy] = useState<"search" | "download" | null>(null);
+  const [error, setError] = useState("");
+  const compatible = runtimes.filter((runtime) => runtime.compatible);
+
+  const findInstalled = async () => {
+    setBusy("search"); setError("");
+    try {
+      const found = await discoverJavaRuntimes(requiredMajor);
+      setRuntimes(found); setSearched(true);
+      if (found.filter((runtime) => runtime.compatible).length === 1) setJavaPath(profile.id, found.find((runtime) => runtime.compatible)!.path);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Java 검색에 실패했습니다."); }
+    finally { setBusy(null); }
+  };
+
+  const download = async () => {
+    setBusy("download"); setError("");
+    try {
+      const path = await downloadJavaRuntime(requiredMajor);
+      setJavaPath(profile.id, path);
+      setRuntimes([{ path, major: requiredMajor, source: "런처", compatible: true }]);
+      setSearched(true);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Java 다운로드에 실패했습니다."); }
+    finally { setBusy(null); }
+  };
+
+  return <article className="java-setting">
+    <div className="java-setting-heading"><span>Java 경로 · 현재 프로필</span><strong>Java {requiredMajor}</strong></div>
+    <div className="java-path-row">
+      <input value={javaPath} onChange={(event) => setJavaPath(profile.id, event.target.value)} placeholder={`Java ${requiredMajor} java.exe 경로`} aria-label="Java 실행 파일 경로" />
+      <button type="button" disabled={busy !== null} onClick={() => void findInstalled()}>{busy === "search" ? "찾는 중..." : "설치된 Java 찾기"}</button>
+    </div>
+    {searched && compatible.length > 0 && <div className="java-runtime-list">{compatible.map((runtime) => <button className={javaPath === runtime.path ? "selected" : ""} type="button" key={runtime.path} onClick={() => setJavaPath(profile.id, runtime.path)}><strong>Java {runtime.major}</strong><span>{runtime.source} · {runtime.path}</span></button>)}</div>}
+    {searched && compatible.length === 0 && <div className="java-missing"><span>이 프로필에 맞는 Java {requiredMajor}을 찾지 못했습니다.</span><button type="button" disabled={busy !== null} onClick={() => void download()}>{busy === "download" ? "다운로드 중..." : `Java ${requiredMajor} 자동 다운로드`}</button></div>}
+    {!searched && <small>경로를 직접 입력하거나 설치된 Java를 검색할 수 있습니다.</small>}
+    {error && <small className="java-error">{error}</small>}
+  </article>;
+}
+
+function SettingsPanel({ profile, account, onLogout, appUpdate }: { profile: LauncherProfile; account: LauncherAccount; onLogout: () => Promise<void>; appUpdate: AppUpdateState }) {
   const { settings, setMemoryGb } = useUserSettings();
   const [editingMemory, setEditingMemory] = useState(false);
   return <div className="settings-grid">
@@ -215,7 +260,8 @@ function SettingsPanel({ account, onLogout, appUpdate }: { account: LauncherAcco
       <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
       <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
     </article>
-    <article><span>정보</span><strong>zzapcho Launcher 0.3.2</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article><span>정보</span><strong>zzapcho Launcher 0.3.3</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <JavaSetting profile={profile} />
     <footer>made by zzapcho</footer>
   </div>;
 }
@@ -228,7 +274,7 @@ export function SectionPanel({ profile, section, account, onLogout, appUpdate }:
       <header><h2>{copy.title}</h2></header>
       {contentKind && <ContentManager key={`${profile.id}-${contentKind}`} profile={profile} kind={contentKind} />}
       {section === "logs" && <LogsPanel />}
-      {section === "settings" && <SettingsPanel account={account} onLogout={onLogout} appUpdate={appUpdate} />}
+      {section === "settings" && <SettingsPanel profile={profile} account={account} onLogout={onLogout} appUpdate={appUpdate} />}
     </section>
   );
 }
