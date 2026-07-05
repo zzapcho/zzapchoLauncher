@@ -32,7 +32,7 @@ async function loadFromConsole(): Promise<LauncherProfile[] | null> {
     if (!response.ok) throw new Error(`Console manifest request failed: ${response.status}`);
     const manifest = await response.json() as ConsoleManifestResponse | unknown[];
     const profiles = Array.isArray(manifest) ? manifest : manifest.profiles;
-    if (Array.isArray(profiles) && profiles.length > 0 && profiles.every(isProfile)) return profiles.map(normalizeProfile);
+    if (Array.isArray(profiles) && profiles.every(isProfile)) return profiles.map(normalizeProfile);
   } catch (error) {
     console.warn("콘솔 manifest를 불러오지 못해 GitHub manifest를 시도합니다.", error);
   }
@@ -44,21 +44,39 @@ async function loadFromGitHub(): Promise<LauncherProfile[] | null> {
     const response = await fetch(`${PROFILE_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) throw new Error(`Manifest request failed: ${response.status}`);
     const manifest: unknown = await response.json();
-    if (Array.isArray(manifest) && manifest.length > 0 && manifest.every(isProfile)) return manifest.map(normalizeProfile);
+    if (Array.isArray(manifest) && manifest.every(isProfile)) return manifest.map(normalizeProfile);
   } catch (error) {
     console.warn("원격 manifest를 불러오지 못해 로컬 프로필을 사용합니다.", error);
   }
   return null;
 }
 
+function loadCachedProfiles(): LauncherProfile[] | null {
+  try {
+    const cached: unknown = JSON.parse(localStorage.getItem(PROFILE_CACHE_KEY) ?? "null");
+    return Array.isArray(cached) && cached.every(isProfile) ? cached.map(normalizeProfile) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheProfiles(profiles: LauncherProfile[]): void {
+  try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profiles)); }
+  catch { /* The bundled fallback remains available when storage is unavailable. */ }
+}
+
 export async function loadProfiles(): Promise<LauncherProfile[]> {
   const consoleProfiles = await loadFromConsole();
-  if (consoleProfiles?.length) {
-    try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(consoleProfiles)); }
-    catch { /* The bundled fallback remains available when storage is unavailable. */ }
+  if (consoleProfiles !== null) {
+    cacheProfiles(consoleProfiles);
     return consoleProfiles;
   }
-  const bundled = (localProfiles as LauncherProfile[]).map(normalizeProfile);
-  if (bundled.length) return bundled;
-  return await loadFromGitHub() ?? [];
+
+  const githubProfiles = await loadFromGitHub();
+  if (githubProfiles !== null) {
+    cacheProfiles(githubProfiles);
+    return githubProfiles;
+  }
+
+  return loadCachedProfiles() ?? (localProfiles as LauncherProfile[]).map(normalizeProfile);
 }

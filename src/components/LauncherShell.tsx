@@ -16,13 +16,14 @@ interface LauncherShellProps {
   profiles: LauncherProfile[];
   selectedProfile?: LauncherProfile;
   selectProfile: (id: string) => void;
+  refreshProfiles: (force?: boolean) => Promise<LauncherProfile[]>;
   loading: boolean;
   account: LauncherAccount;
   onLogout: () => Promise<void>;
   appUpdate: AppUpdateState;
 }
 
-export function LauncherShell({ profiles, selectedProfile, selectProfile, loading, account, onLogout, appUpdate }: LauncherShellProps) {
+export function LauncherShell({ profiles, selectedProfile, selectProfile, refreshProfiles, loading, account, onLogout, appUpdate }: LauncherShellProps) {
   const accent = useAccentColor(selectedProfile);
   const [status, setStatus] = useState<LaunchStatus>("idle");
   const [activeSection, setActiveSection] = useState<LauncherSection>("home");
@@ -59,7 +60,10 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
 
   const handleLaunch = async () => {
     try {
-      const result = await launchProfile(selectedProfile, account, (progress) => {
+      const latestProfiles = await refreshProfiles(true);
+      const latestProfile = latestProfiles.find((profile) => profile.id === selectedProfile.id) ?? latestProfiles[0];
+      if (!latestProfile) throw new Error("사용 가능한 프로필이 없습니다.");
+      const result = await launchProfile(latestProfile, account, (progress) => {
         setStatus(progress.status);
       });
       setStatus("running");
@@ -71,6 +75,11 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
   };
 
   const background = `url("${selectedProfile.backgroundImage}")`;
+
+  const navigate = (section: LauncherSection) => {
+    void refreshProfiles();
+    setActiveSection(section);
+  };
 
   const changeProfile = (id: string) => {
     if (id === selectedProfile.id) return;
@@ -85,7 +94,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
   return (
     <main className={`launcher-shell${switchingProfile ? " is-profile-switching" : ""}${wideLayout ? " is-wide" : ""}`} style={{ "--accent": accent, "--background": background } as React.CSSProperties}>
       <div className="edge-distortion" aria-hidden="true" />
-      <WindowControls activeSection={activeSection} onNavigate={setActiveSection} updateAvailable={appUpdate.available} />
+      <WindowControls activeSection={activeSection} onNavigate={navigate} updateAvailable={appUpdate.available} />
 
       {activeSection === "home" ? <section className="hero" aria-label={`${selectedProfile.name} 실행`}>
         <div className="profile-copy">
