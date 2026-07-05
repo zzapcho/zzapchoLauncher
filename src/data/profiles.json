@@ -50,5 +50,47 @@
     "shaders": [],
     "editableFields": { "mods": true, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
     "launchOptions": { "minMemoryMb": 3072, "maxMemoryMb": 6144, "javaArgs": ["-XX:+UseG1GC"] }
+  },
+  {
+    "id": "vanilla-survival",
+    "name": "Vanilla Survival",
+    "description": "가볍게 즐기는 순정 생존 프로필",
+    "customText": "아무것도 더하지 않은 모험.",
+    "backgroundImage": "/backgrounds/default.svg",
+    "accentColor": "#f0c86c",
+    "minecraftVersion": "1.21.1",
+    "modLoader": "vanilla",
+    "modLoaderVersion": "",
+    "mods": [], "resourcePacks": [], "shaders": [],
+    "editableFields": { "mods": false, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
+    "launchOptions": { "minMemoryMb": 2048, "maxMemoryMb": 4096, "javaArgs": [] }
+  },
+  {
+    "id": "builders-club",
+    "name": "Builders Club",
+    "description": "건축과 월드 제작을 위한 프로필",
+    "customText": "오늘은 무엇을 만들어볼까요?",
+    "backgroundImage": "/backgrounds/creative.svg",
+    "accentColor": "#ffae73",
+    "minecraftVersion": "1.21.1",
+    "modLoader": "fabric",
+    "modLoaderVersion": "0.16.9",
+    "mods": [], "resourcePacks": [], "shaders": [],
+    "editableFields": { "mods": true, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
+    "launchOptions": { "minMemoryMb": 2048, "maxMemoryMb": 4096, "javaArgs": [] }
+  },
+  {
+    "id": "performance-lab",
+    "name": "Performance Lab",
+    "description": "성능 모드 조합을 시험하는 프로필",
+    "customText": "더 부드럽고 더 빠르게.",
+    "backgroundImage": "/backgrounds/modded.svg",
+    "accentColor": "#ff8ca1",
+    "minecraftVersion": "1.21.1",
+    "modLoader": "fabric",
+    "modLoaderVersion": "0.16.9",
+    "mods": [], "resourcePacks": [], "shaders": [],
+    "editableFields": { "mods": true, "resourcePacks": true, "shaders": true, "minecraftVersion": false, "modLoader": false, "javaArgs": true, "memory": true },
+    "launchOptions": { "minMemoryMb": 2048, "maxMemoryMb": 6144, "javaArgs": ["-XX:+UseG1GC"] }
   }
 ]

@@ -1,5 +1,6 @@
 import type { LauncherProfile, LaunchResult, LaunchStatus } from "../types/profile";
 import { validateProfileContent } from "./contentService";
+import { appendLog, resetGameLogs } from "./logService";
 
 export interface LaunchProgress {
   status: LaunchStatus;
@@ -12,6 +13,9 @@ export async function launchProfile(
   profile: LauncherProfile,
   onProgress?: (progress: LaunchProgress) => void,
 ): Promise<LaunchResult> {
+  resetGameLogs();
+  appendLog("launcher", `${profile.name} 실행 요청`);
+  appendLog("game", "새 게임 세션 로그 시작");
   const contentValidation = validateProfileContent(profile);
   if (!contentValidation.valid) {
     throw new Error(contentValidation.issues.join("\n"));
@@ -25,6 +29,7 @@ export async function launchProfile(
 
   for (const step of steps) {
     onProgress?.(step);
+    appendLog("launcher", step.message);
     await wait(500);
   }
 

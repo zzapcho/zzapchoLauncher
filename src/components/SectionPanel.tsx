@@ -1,27 +1,31 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useProfileContent } from "../hooks/useProfileContent";
 import { useUserSettings } from "../hooks/useUserSettings";
 import { createUserContent } from "../services/contentService";
 import { getInstallableVersion, searchModrinth, type ModrinthProject } from "../services/modrinthService";
+import { getLogs, subscribeLogs, type LogSource } from "../services/logService";
 import type { ContentKind } from "../types/content";
 import type { LauncherProfile } from "../types/profile";
 import type { LauncherSection } from "../types/navigation";
+import type { LauncherAccount } from "../types/auth";
 
 interface SectionPanelProps {
   profile: LauncherProfile;
   section: Exclude<LauncherSection, "home">;
+  account: LauncherAccount;
+  onLogout: () => Promise<void>;
 }
 
 const isTauri = () => "__TAURI_INTERNALS__" in window;
 
 const sectionCopy = {
-  mods: { title: "모드", description: "이 프로필에서 사용할 모드를 관리합니다." },
-  "resource-packs": { title: "리소스팩", description: "이 프로필에서 사용할 리소스팩을 관리합니다." },
-  shaders: { title: "쉐이더", description: "이 프로필에서 사용할 쉐이더를 관리합니다." },
-  logs: { title: "로그", description: "게임과 런처 로그를 실시간으로 확인합니다." },
-  settings: { title: "설정", description: "모든 프로필에 공통으로 적용되는 사용자 설정입니다." },
+  mods: { title: "모드" },
+  "resource-packs": { title: "리소스팩" },
+  shaders: { title: "쉐이더" },
+  logs: { title: "로그" },
+  settings: { title: "설정" },
 } as const;
 
 function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: ContentKind }) {
@@ -29,20 +33,38 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   const [projects, setProjects] = useState<ModrinthProject[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const editable = profile.editableFields[kind];
   const entries = content.state[kind];
   const title = sectionCopy[kind === "resourcePacks" ? "resource-packs" : kind].title;
 
-  const loadProjects = async (search = "") => {
+  const loadProjects = async (search = "", reset = true) => {
+    if (loading) return;
     setLoading(true);
-    try { setProjects(await searchModrinth(kind, profile, search)); }
-    catch (error) { console.warn(error); setProjects([]); }
+    try {
+      const offset = reset ? 0 : projects.length;
+      const result = await searchModrinth(kind, profile, search, offset, 6);
+      setProjects((current) => reset ? result.hits : [...current, ...result.hits.filter((hit) => !current.some((item) => item.project_id === hit.project_id))]);
+      setHasMore(offset + result.hits.length < result.total);
+    }
+    catch (error) { console.warn(error); if (reset) setProjects([]); setHasMore(false); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { void loadProjects(); }, [kind, profile.id]);
+  useEffect(() => { setQuery(""); setHasMore(true); void loadProjects("", true); }, [kind, profile.id]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && hasMore && !loading) void loadProjects(query, false);
+    }, { rootMargin: "100px" });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loading, projects.length, query, kind, profile.id]);
 
   const installPaths = async (paths: string[]) => {
     if (!editable) return;
@@ -80,6 +102,12 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     finally { setInstalling(null); }
   };
 
+  const openProject = (project: ModrinthProject) => {
+    const url = `https://modrinth.com/${project.project_type}/${project.slug}`;
+    if (isTauri()) void invoke("open_external_url", { url });
+    else window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="content-manager">
       <div className="content-list">
@@ -101,7 +129,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
         </div>
         <div className="content-toolbar">
           <button className="section-action" type="button" onClick={openFolder}>폴더에서 추가</button>
-          <form onSubmit={(event) => { event.preventDefault(); void loadProjects(query); }}>
+          <form onSubmit={(event) => { event.preventDefault(); setHasMore(true); void loadProjects(query, true); }}>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Modrinth 검색" aria-label="Modrinth 검색" />
             <button type="submit">검색</button>
           </form>
@@ -109,14 +137,15 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
         <div className="modrinth-section">
           <div className="modrinth-heading"><strong>Modrinth</strong><span>{query ? "검색 결과" : "인기순"}</span></div>
           <div className="modrinth-results">
-            {loading ? <div className="inline-loading">불러오는 중...</div> : projects.map((project) => {
+            {!projects.length && loading ? <div className="inline-loading">불러오는 중...</div> : projects.map((project) => {
               const installed = entries.some((entry) => entry.projectId === project.project_id);
               return <article key={project.project_id}>
-                {project.icon_url ? <img src={project.icon_url} alt="" /> : <span className="project-placeholder" />}
+                {project.icon_url ? <img src={project.icon_url} alt="" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" /> : <span className="project-placeholder" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" />}
                 <div><strong>{project.title}</strong><small>{project.author} · {Intl.NumberFormat("ko-KR", { notation: "compact" }).format(project.downloads)} 다운로드</small></div>
                 <button type="button" disabled={installed || installing === project.project_id} onClick={() => void installProject(project)}>{installed ? "설치됨" : installing === project.project_id ? "설치 중" : "설치"}</button>
               </article>;
             })}
+            <div className="load-more-sentinel" ref={loadMoreRef}>{loading && projects.length ? "더 불러오는 중..." : hasMore ? "" : projects.length ? "모두 불러왔습니다." : ""}</div>
           </div>
         </div>
       </> : <div className="locked-panel">이 프로필에서는 {title} 추가·토글·삭제가 허용되지 않습니다. 서버 관리 항목은 항상 잠겨 있습니다.</div>}
@@ -124,14 +153,16 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   );
 }
 
-const GAME_LOGS = Array.from({ length: 48 }, (_, index) => `[10:${String(index + 10).padStart(2, "0")}:24] [Client thread/INFO] 게임 로그 ${index + 1}`);
-const LAUNCHER_LOGS = Array.from({ length: 32 }, (_, index) => `[10:${String(index + 20).padStart(2, "0")}:02] 런처 작업 ${index + 1} 완료`);
-
 function LogsPanel() {
-  const [source, setSource] = useState<"game" | "launcher">("game");
+  const [source, setSource] = useState<LogSource>("game");
+  const [lines, setLines] = useState(() => getLogs("game"));
   const [atBottom, setAtBottom] = useState(true);
   const viewport = useRef<HTMLDivElement>(null);
-  const lines = useMemo(() => source === "game" ? GAME_LOGS : LAUNCHER_LOGS, [source]);
+
+  useEffect(() => {
+    setLines(getLogs(source));
+    return subscribeLogs(() => setLines([...getLogs(source)]));
+  }, [source]);
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     const element = viewport.current;
@@ -154,15 +185,20 @@ function LogsPanel() {
       <button className={`scroll-bottom${atBottom ? " is-hidden" : ""}`} type="button" onClick={() => { setAtBottom(true); scrollToBottom(); }} aria-label="로그 맨 아래로 이동">↓</button>
     </div>
     <div className="log-view" ref={viewport} onScroll={(event) => { const element = event.currentTarget; setAtBottom(element.scrollHeight - element.scrollTop - element.clientHeight < 18); }}>
-      {lines.map((line, index) => <p key={`${source}-${index}`}>{line}</p>)}
+      {lines.length ? lines.map((line, index) => <p key={`${source}-${index}`}>{line}</p>) : <p className="empty-log">아직 {source === "game" ? "게임" : "런처"} 로그가 없습니다.</p>}
     </div>
   </div>;
 }
 
-function SettingsPanel() {
+function SettingsPanel({ account, onLogout }: { account: LauncherAccount; onLogout: () => Promise<void> }) {
   const { settings, setMemoryGb } = useUserSettings();
   const [editingMemory, setEditingMemory] = useState(false);
   return <div className="settings-grid">
+    <article className="account-setting">
+      <div className="skin-head" style={account.skinUrl ? { backgroundImage: `url("${account.skinUrl}")` } : undefined}>{!account.skinUrl && account.name.slice(0, 1).toUpperCase()}</div>
+      <div><span>Microsoft 계정</span><strong>{account.name}</strong></div>
+      <button type="button" onClick={() => void onLogout()}>로그아웃</button>
+    </article>
     <article className="memory-setting">
       <div><span>게임 메모리</span>{editingMemory ? <input autoFocus type="number" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} onBlur={() => setEditingMemory(false)} onKeyDown={(event) => event.key === "Enter" && setEditingMemory(false)} /> : <button type="button" onClick={() => setEditingMemory(true)}>{settings.memoryGb.toFixed(1)} GB</button>}</div>
       <input className="memory-slider" type="range" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} />
@@ -170,18 +206,19 @@ function SettingsPanel() {
     <article><span>게임 폴더</span><strong>.minecraft</strong><button className="settings-button" type="button" onClick={() => { if (isTauri()) void invoke("open_game_folder"); }}>폴더 열기</button></article>
     <article><span>업데이트</span><strong>최신 버전</strong><small>manifest 자동 업데이트 준비됨</small></article>
     <article><span>정보</span><strong>zzapcho Launcher 0.1.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <footer>made by zzapcho</footer>
   </div>;
 }
 
-export function SectionPanel({ profile, section }: SectionPanelProps) {
+export function SectionPanel({ profile, section, account, onLogout }: SectionPanelProps) {
   const copy = sectionCopy[section];
   const contentKind: ContentKind | null = section === "mods" ? "mods" : section === "resource-packs" ? "resourcePacks" : section === "shaders" ? "shaders" : null;
   return (
     <section className="section-panel" aria-label={copy.title}>
-      <header><h2>{copy.title}</h2><span>{copy.description}</span></header>
+      <header><h2>{copy.title}</h2></header>
       {contentKind && <ContentManager key={`${profile.id}-${contentKind}`} profile={profile} kind={contentKind} />}
       {section === "logs" && <LogsPanel />}
-      {section === "settings" && <SettingsPanel />}
+      {section === "settings" && <SettingsPanel account={account} onLogout={onLogout} />}
     </section>
   );
 }

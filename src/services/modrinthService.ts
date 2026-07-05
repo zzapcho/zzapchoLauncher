@@ -5,6 +5,7 @@ const MODRINTH_API = "https://api.modrinth.com/v2";
 
 export interface ModrinthProject {
   project_id: string;
+  slug: string;
   title: string;
   description: string;
   icon_url: string | null;
@@ -25,14 +26,19 @@ const projectType: Record<ContentKind, ModrinthProject["project_type"]> = {
   shaders: "shader",
 };
 
-export async function searchModrinth(kind: ContentKind, profile: LauncherProfile, query = ""): Promise<ModrinthProject[]> {
+export interface ModrinthSearchResult {
+  hits: ModrinthProject[];
+  total: number;
+}
+
+export async function searchModrinth(kind: ContentKind, profile: LauncherProfile, query = "", offset = 0, limit = 6): Promise<ModrinthSearchResult> {
   const facets = [[`project_type:${projectType[kind]}`], [`versions:${profile.minecraftVersion}`]];
   if (kind === "mods" && profile.modLoader !== "vanilla") facets.push([`categories:${profile.modLoader}`]);
-  const params = new URLSearchParams({ query, index: query ? "relevance" : "downloads", limit: "6", facets: JSON.stringify(facets) });
+  const params = new URLSearchParams({ query, index: query ? "relevance" : "downloads", limit: String(limit), offset: String(offset), facets: JSON.stringify(facets) });
   const response = await fetch(`${MODRINTH_API}/search?${params}`);
   if (!response.ok) throw new Error(`Modrinth search failed: ${response.status}`);
-  const payload = await response.json() as { hits: ModrinthProject[] };
-  return payload.hits;
+  const payload = await response.json() as { hits: ModrinthProject[]; total_hits: number };
+  return { hits: payload.hits, total: payload.total_hits };
 }
 
 export async function getInstallableVersion(projectId: string, kind: ContentKind, profile: LauncherProfile): Promise<{ version: string; url: string; fileName: string }> {

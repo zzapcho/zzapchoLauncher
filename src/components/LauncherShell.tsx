@@ -8,15 +8,18 @@ import { VersionBadge } from "./VersionBadge";
 import { WindowControls } from "./WindowControls";
 import { SectionPanel } from "./SectionPanel";
 import type { LauncherSection } from "../types/navigation";
+import type { LauncherAccount } from "../types/auth";
 
 interface LauncherShellProps {
   profiles: LauncherProfile[];
   selectedProfile?: LauncherProfile;
   selectProfile: (id: string) => void;
   loading: boolean;
+  account: LauncherAccount;
+  onLogout: () => Promise<void>;
 }
 
-export function LauncherShell({ profiles, selectedProfile, selectProfile, loading }: LauncherShellProps) {
+export function LauncherShell({ profiles, selectedProfile, selectProfile, loading, account, onLogout }: LauncherShellProps) {
   const accent = useAccentColor(selectedProfile);
   const [status, setStatus] = useState<LaunchStatus>("idle");
   const [activeSection, setActiveSection] = useState<LauncherSection>("home");
@@ -25,6 +28,13 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
   const busy = !["idle", "stub", "error"].includes(status);
 
   useEffect(() => () => transitionTimers.current.forEach(window.clearTimeout), []);
+  useEffect(() => {
+    const returnHome = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && activeSection !== "home") setActiveSection("home");
+    };
+    document.addEventListener("keydown", returnHome);
+    return () => document.removeEventListener("keydown", returnHome);
+  }, [activeSection]);
 
   if (loading) return <main className="empty-state"><span className="loader" />프로필을 불러오는 중...</main>;
   if (!selectedProfile) return <main className="empty-state">사용 가능한 프로필이 없어요.</main>;
@@ -61,12 +71,11 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
 
       {activeSection === "home" ? <section className="hero" aria-label={`${selectedProfile.name} 실행`}>
         <div className="profile-copy">
-          <p className="eyebrow">{selectedProfile.name}</p>
           <h2>{selectedProfile.customText}</h2>
         </div>
         <PlayButton busy={busy} onClick={handleLaunch} />
         <VersionBadge profile={selectedProfile} />
-      </section> : <SectionPanel profile={selectedProfile} section={activeSection} />}
+      </section> : <SectionPanel profile={selectedProfile} section={activeSection} account={account} onLogout={onLogout} />}
 
       {activeSection === "home" && <ProfileSelector profiles={profiles} selectedProfile={selectedProfile} onSelect={changeProfile} disabled={busy} />}
     </main>

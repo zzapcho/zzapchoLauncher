@@ -40,6 +40,7 @@ function NavigationList({ activeSection, onNavigate, tabIndex }: LauncherMenuPro
 export function LauncherMenu({ activeSection, onNavigate }: LauncherMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const closeOutside = (event: MouseEvent) => {
@@ -57,30 +58,40 @@ export function LauncherMenu({ activeSection, onNavigate }: LauncherMenuProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const index = Math.max(0, LAUNCHER_NAV_ITEMS.findIndex((item) => item.id === activeSection));
+    requestAnimationFrame(() => panelRef.current?.querySelectorAll<HTMLButtonElement>("nav button")[index]?.focus());
+  }, [open, activeSection]);
+
   const navigate = (section: LauncherSection) => {
     onNavigate(section);
     setOpen(false);
   };
 
-  const handleControl = () => {
-    if (activeSection !== "home") navigate("home");
-    else setOpen((value) => !value);
+  const moveFocus = (direction: number) => {
+    const buttons = Array.from(panelRef.current?.querySelectorAll<HTMLButtonElement>("nav button") ?? []);
+    const current = Math.max(0, buttons.indexOf(document.activeElement as HTMLButtonElement));
+    buttons[(current + direction + buttons.length) % buttons.length]?.focus();
   };
 
   return (
     <>
-      <div className={`launcher-menu${open ? " is-open" : ""}${activeSection !== "home" ? " is-back" : ""}`} ref={menuRef}>
-        <div className="launcher-menu-panel" aria-hidden={!open}>
+      <div className={`launcher-menu${open ? " is-open" : ""}`} ref={menuRef}>
+        <div className="launcher-menu-panel" aria-hidden={!open} ref={panelRef} onWheel={(event) => { event.preventDefault(); moveFocus(event.deltaY > 0 ? 1 : -1); }} onKeyDown={(event) => {
+          if (event.key === "ArrowDown") { event.preventDefault(); moveFocus(1); }
+          if (event.key === "ArrowUp") { event.preventDefault(); moveFocus(-1); }
+        }}>
           <NavigationList activeSection={activeSection} onNavigate={navigate} tabIndex={open ? 0 : -1} />
         </div>
         <button
           type="button"
           className="floating-control menu-control"
-          aria-label={activeSection !== "home" ? "홈으로 돌아가기" : open ? "메뉴 닫기" : "메뉴 열기"}
-          aria-expanded={activeSection === "home" ? open : undefined}
-          onClick={handleControl}
+          aria-label={open ? "메뉴 닫기" : "메뉴 열기"}
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
         >
-          {activeSection === "home" ? <><span /><span /><span /></> : <b aria-hidden="true">‹</b>}
+          <span /><span /><span />
         </button>
       </div>
       <aside className="desktop-sidebar">
