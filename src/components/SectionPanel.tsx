@@ -209,15 +209,13 @@ function SettingsPanel({ account, onLogout, appUpdate }: { account: LauncherAcco
       <input className="memory-slider" type="range" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} />
     </article>
     <article><span>게임 폴더</span><strong>.minecraft</strong><button className="settings-button" type="button" onClick={() => { if (isTauri()) void invoke("open_game_folder"); }}>폴더 열기</button></article>
-    <article><span>업데이트</span><strong>최신 버전</strong><small>manifest 자동 업데이트 준비됨</small></article>
-    <article><span>정보</span><strong>zzapcho Launcher 0.1.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <article className={`update-setting${appUpdate.available ? " is-available" : ""}`}>
       <span>업데이트</span>
       <strong>{appUpdate.available ? `버전 ${appUpdate.version} 사용 가능` : "최신 버전"}</strong>
       <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
       <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
     </article>
-    <article><span>정보</span><strong>zzapcho Launcher 0.2.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article><span>정보</span><strong>zzapcho Launcher 0.3.1</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <footer>made by zzapcho</footer>
   </div>;
 }
