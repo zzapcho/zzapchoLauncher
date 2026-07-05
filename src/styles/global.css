@@ -24,6 +24,7 @@ button { font: inherit; }
   padding: 0;
   overflow: hidden;
   background: #111913;
+  transition: padding-left .28s cubic-bezier(.2,.8,.2,1);
 }
 
 .launcher-shell::after {
@@ -94,7 +95,7 @@ button { font: inherit; }
 .launcher-menu.is-open .menu-control { border-color: transparent; background: transparent; box-shadow: none; backdrop-filter: none; }
 .launcher-menu.is-open .menu-control { transform: translate(4px, 4px); }
 .launcher-menu.is-open .menu-control:hover { border-color: transparent; background: transparent; transform: translate(4px, 4px) scale(1.055); }
-.launcher-menu.is-back .menu-control b { margin: -3px 0 0 -1px; font-size: 28px; font-weight: 300; line-height: 1; }
+.launcher-menu.is-back .menu-control b { font-size: 28px; font-weight: 300; line-height: 1; }
 .launcher-menu-panel {
   position: absolute;
   z-index: 1;
@@ -121,9 +122,9 @@ button { font: inherit; }
 .launcher-menu-panel nav button.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .nav-icon { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .nav-icon-home path { fill: currentColor; stroke: none; }
-.desktop-sidebar { display: none; }
+.desktop-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 18; display: block; width: 190px; padding: 58px 10px 12px; border-right: 1px solid rgba(255,255,255,.12); background: rgba(10,14,11,.84); backdrop-filter: blur(16px); opacity: 0; transform: translateX(-100%); visibility: hidden; pointer-events: none; transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s ease, visibility 0s linear .28s; }
 
-.hero { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; padding: 0 16px 8px; text-align: center; }
+.hero { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; padding: 0 16px 8px; text-align: center; animation: home-view-in .24s ease-out; }
 .profile-copy { width: 100%; max-width: 320px; min-height: 80px; }
 .eyebrow { margin: 0 0 8px; color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .profile-copy h2 { display: -webkit-box; margin: 0; overflow: hidden; font-size: 26px; font-weight: 650; line-height: 1.15; letter-spacing: -.04em; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
@@ -226,7 +227,7 @@ button { font: inherit; }
 .inline-loading, .locked-panel { padding: 20px; color: rgba(255,255,255,.46); text-align: center; font-size: 9px; }
 .locked-panel { border: 1px dashed rgba(255,255,255,.17); border-radius: 13px; line-height: 1.6; }
 
-.logs-panel { display: flex; flex: 1; flex-direction: column; gap: 9px; min-height: 0; }
+.logs-panel { display: flex; flex: 1; flex-direction: column; gap: 9px; min-height: 0; padding-bottom: 12px; }
 .log-controls { position: relative; display: flex; justify-content: center; flex: none; }
 .log-segmented { display: grid; grid-template-columns: 1fr 1fr; width: min(100%, 360px); height: 36px; padding: 3px; border: 1px solid rgba(255,255,255,.15); border-radius: 18px; background: rgba(8,12,9,.62); }
 .log-segmented button { border: 0; border-radius: 14px; color: rgba(255,255,255,.48); background: transparent; cursor: pointer; font-size: 9px; transition: color .16s ease, background .2s ease, transform .16s ease; }
@@ -247,10 +248,12 @@ button { font: inherit; }
 .memory-setting > div button, .memory-setting > div input { width: 74px; height: 27px; border: 1px solid rgba(255,255,255,.14); border-radius: 9px; color: var(--accent); background: rgba(255,255,255,.06); text-align: center; font-size: 10px; font-weight: 700; }
 .memory-slider { width: 100%; accent-color: var(--accent); cursor: pointer; }
 
-.launcher-menu.is-back .menu-control b { display: grid; width: 100%; height: 100%; margin: 0; place-items: center; transform: translate(1px, -1px); animation: back-control-in .2s ease-out; }
-@keyframes back-control-in { from { opacity: 0; transform: translate(4px, -1px); } }
+.launcher-menu.is-back .menu-control b { display: grid; width: 100%; height: 100%; margin: 0; place-items: center; transform: translate(1px, -4px); animation: back-control-in .2s ease-out; }
+@keyframes back-control-in { from { opacity: 0; transform: translate(5px, -4px); } }
 .section-panel { animation: section-in .2s ease-out; }
 @keyframes section-in { from { opacity: 0; transform: translateY(4px); } }
+@keyframes home-view-in { from { opacity: 0; transform: translateY(4px) scale(.99); } }
+.hero + .profile-selector, .profile-selector { animation: home-view-in .24s ease-out; }
 
 .empty-state { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 100%; color: rgba(255,255,255,.65); background: #0b100c; font-size: 12px; }
 .loader { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.2); border-top-color: #8fe388; border-radius: 50%; animation: spin .7s linear infinite; }
@@ -263,7 +266,7 @@ button { font: inherit; }
 @media (min-width: 760px) {
   .launcher-shell { padding-left: 190px; }
   .launcher-menu { display: none; }
-  .desktop-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 18; display: block; width: 190px; padding: 58px 10px 12px; border-right: 1px solid rgba(255,255,255,.12); background: rgba(10,14,11,.84); backdrop-filter: blur(16px); }
+  .desktop-sidebar { opacity: 1; transform: translateX(0); visibility: visible; pointer-events: auto; transition-delay: 0s; }
   .desktop-sidebar nav { display: grid; gap: 4px; }
   .desktop-sidebar nav button { display: flex; align-items: center; gap: 11px; width: 100%; height: 39px; padding: 0 12px; border: 0; border-radius: 10px; color: rgba(255,255,255,.6); background: transparent; cursor: pointer; text-align: left; font-size: 12px; transition: color .14s ease, background .14s ease; }
   .desktop-sidebar nav button:hover { color: #fff; background: rgba(255,255,255,.07); }
