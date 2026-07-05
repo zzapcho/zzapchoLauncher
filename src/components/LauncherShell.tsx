@@ -1,24 +1,40 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAccentColor } from "../hooks/useAccentColor";
 import { launchProfile } from "../services/launchService";
 import type { LauncherProfile, LaunchStatus } from "../types/profile";
 import { PlayButton } from "./PlayButton";
 import { ProfileSelector } from "./ProfileSelector";
-import { StatusText } from "./StatusText";
 import { VersionBadge } from "./VersionBadge";
+import { WindowControls } from "./WindowControls";
+import { SectionPanel } from "./SectionPanel";
+import type { LauncherSection } from "../types/navigation";
+import type { LauncherAccount } from "../types/auth";
 
 interface LauncherShellProps {
   profiles: LauncherProfile[];
   selectedProfile?: LauncherProfile;
   selectProfile: (id: string) => void;
   loading: boolean;
+  account: LauncherAccount;
+  onLogout: () => Promise<void>;
 }
 
-export function LauncherShell({ profiles, selectedProfile, selectProfile, loading }: LauncherShellProps) {
+export function LauncherShell({ profiles, selectedProfile, selectProfile, loading, account, onLogout }: LauncherShellProps) {
   const accent = useAccentColor(selectedProfile);
   const [status, setStatus] = useState<LaunchStatus>("idle");
-  const [message, setMessage] = useState("플레이할 준비가 됐어요");
+  const [activeSection, setActiveSection] = useState<LauncherSection>("home");
+  const [switchingProfile, setSwitchingProfile] = useState(false);
+  const transitionTimers = useRef<number[]>([]);
   const busy = !["idle", "stub", "error"].includes(status);
+
+  useEffect(() => () => transitionTimers.current.forEach(window.clearTimeout), []);
+  useEffect(() => {
+    const returnHome = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && activeSection !== "home") setActiveSection("home");
+    };
+    document.addEventListener("keydown", returnHome);
+    return () => document.removeEventListener("keydown", returnHome);
+  }, [activeSection]);
 
   if (loading) return <main className="empty-state"><span className="loader" />프로필을 불러오는 중...</main>;
   if (!selectedProfile) return <main className="empty-state">사용 가능한 프로필이 없어요.</main>;
@@ -27,40 +43,41 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
     try {
       const result = await launchProfile(selectedProfile, (progress) => {
         setStatus(progress.status);
-        setMessage(progress.message);
       });
       setStatus("stub");
-      setMessage(result.message);
+      console.info(result.message);
     } catch (error) {
       console.error(error);
       setStatus("error");
-      setMessage("실행 준비 중 문제가 생겼어요.");
     }
   };
 
-  const background = `linear-gradient(180deg, rgba(4, 8, 6, .15), rgba(3, 6, 5, .82)), url("${selectedProfile.backgroundImage}")`;
+  const background = `url("${selectedProfile.backgroundImage}")`;
+
+  const changeProfile = (id: string) => {
+    if (id === selectedProfile.id) return;
+    transitionTimers.current.forEach(window.clearTimeout);
+    setSwitchingProfile(true);
+    transitionTimers.current = [
+      window.setTimeout(() => { selectProfile(id); setStatus("idle"); }, 140),
+      window.setTimeout(() => setSwitchingProfile(false), 300),
+    ];
+  };
 
   return (
-    <main className="launcher-shell" style={{ "--accent": accent, "--background": background } as React.CSSProperties}>
-      <div className="ambient-light" />
-      <header className="launcher-header">
-        <div className="brand-mark"><span>z</span></div>
-        <div><p>ZZAPCHO</p><h1>Launcher</h1></div>
-        <div className="online-chip"><span /> ONLINE</div>
-      </header>
+    <main className={`launcher-shell${switchingProfile ? " is-profile-switching" : ""}`} style={{ "--accent": accent, "--background": background } as React.CSSProperties}>
+      <div className="edge-distortion" aria-hidden="true" />
+      <WindowControls activeSection={activeSection} onNavigate={setActiveSection} />
 
-      <section className="hero" aria-label={`${selectedProfile.name} 실행`}>
+      {activeSection === "home" ? <section className="hero" aria-label={`${selectedProfile.name} 실행`}>
         <div className="profile-copy">
-          <p className="eyebrow">{selectedProfile.name}</p>
           <h2>{selectedProfile.customText}</h2>
-          <p className="description">{selectedProfile.description}</p>
         </div>
         <PlayButton busy={busy} onClick={handleLaunch} />
         <VersionBadge profile={selectedProfile} />
-        <StatusText message={message} busy={busy} />
-      </section>
+      </section> : <SectionPanel profile={selectedProfile} section={activeSection} account={account} onLogout={onLogout} />}
 
-      <ProfileSelector profiles={profiles} selectedProfile={selectedProfile} onSelect={(id) => { selectProfile(id); setStatus("idle"); setMessage("플레이할 준비가 됐어요"); }} disabled={busy} />
+      {activeSection === "home" && <ProfileSelector profiles={profiles} selectedProfile={selectedProfile} onSelect={changeProfile} disabled={busy} />}
     </main>
   );
 }

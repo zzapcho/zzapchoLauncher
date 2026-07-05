@@ -1,6 +1,6 @@
 export type ModLoader = "fabric" | "forge" | "quilt" | "vanilla";
 
-export interface ContentEntry {
+export interface LauncherAsset {
   id: string;
   name: string;
   version: string;
@@ -26,6 +26,12 @@ export interface EditableFields {
   memory: boolean;
 }
 
+export interface LaunchOptions {
+  minMemoryMb: number;
+  maxMemoryMb: number;
+  javaArgs: string[];
+}
+
 export interface LauncherProfile {
   id: string;
   name: string;
@@ -37,21 +43,24 @@ export interface LauncherProfile {
   modLoader: ModLoader;
   modLoaderVersion: string;
   defaultServer: DefaultServer;
-  mods: ContentEntry[];
-  resourcePacks: ContentEntry[];
-  shaders: ContentEntry[];
+  mods: LauncherAsset[];
+  resourcePacks: LauncherAsset[];
+  shaders: LauncherAsset[];
   editableFields: EditableFields;
-  launchOptions: {
-    minMemoryMb: number;
-    maxMemoryMb: number;
-    javaArgs: string[];
-  };
+  launchOptions: LaunchOptions;
 }
 
-export type LaunchStatus = "idle" | "preparing" | "checking-profile" | "checking-content" | "ready" | "stub" | "error";
+export type ProfilesManifest = LauncherProfile[];
 
-export interface LaunchResult {
-  success: boolean;
-  message: string;
-  profileId: string;
-}
+export const MOD_LOADERS: ModLoader[] = ["vanilla", "fabric", "forge", "quilt"];
+
+export const EMPTY_EDITABLE_FIELDS: EditableFields = {
+  server: false,
+  mods: false,
+  resourcePacks: true,
+  shaders: true,
+  minecraftVersion: false,
+  modLoader: false,
+  javaArgs: true,
+  memory: true,
+};
