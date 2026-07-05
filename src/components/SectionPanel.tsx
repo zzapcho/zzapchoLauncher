@@ -184,14 +184,16 @@ function LogsPanel() {
 
   return <div className="logs-panel">
     <div className="log-controls">
-      <div className="log-segmented" role="tablist">
+      <div className={`log-segmented${source === "launcher" ? " is-launcher" : ""}`} role="tablist">
         <button className={source === "game" ? "active" : ""} type="button" role="tab" onClick={() => setSource("game")}>게임</button>
         <button className={source === "launcher" ? "active" : ""} type="button" role="tab" onClick={() => setSource("launcher")}>런처</button>
       </div>
-      <button className={`scroll-bottom${atBottom ? " is-hidden" : ""}`} type="button" onClick={() => { setAtBottom(true); scrollToBottom(); }} aria-label="로그 맨 아래로 이동">↓</button>
     </div>
-    <div className="log-view" ref={viewport} onScroll={(event) => { const element = event.currentTarget; setAtBottom(element.scrollHeight - element.scrollTop - element.clientHeight < 18); }}>
-      {lines.length ? lines.map((line, index) => <p key={`${source}-${index}`}>{line}</p>) : <p className="empty-log">아직 {source === "game" ? "게임" : "런처"} 로그가 없습니다.</p>}
+    <div className="log-view-wrap">
+      <div className="log-view" ref={viewport} tabIndex={0} onScroll={(event) => { const element = event.currentTarget; setAtBottom(element.scrollHeight - element.scrollTop - element.clientHeight < 18); }}>
+        {lines.length ? lines.map((line, index) => <p key={`${source}-${index}`}>{line}</p>) : <p className="empty-log">아직 {source === "game" ? "게임" : "런처"} 로그가 없습니다.</p>}
+      </div>
+      <button className={`scroll-bottom${atBottom ? " is-hidden" : ""}`} type="button" onClick={() => { setAtBottom(true); scrollToBottom(); }} aria-label="로그 맨 아래로 이동">↓</button>
     </div>
   </div>;
 }
@@ -260,7 +262,7 @@ function SettingsPanel({ profile, account, onLogout, appUpdate }: { profile: Lau
       <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
       <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
     </article>
-    <article><span>정보</span><strong>zzapcho Launcher 0.3.3</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article><span>정보</span><strong>zzapcho Launcher 0.3.4</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <JavaSetting profile={profile} />
     <footer>made by zzapcho</footer>
   </div>;

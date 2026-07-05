@@ -10,6 +10,9 @@
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 #root { width: 100%; height: 100%; }
 button { font: inherit; }
+body { user-select: none; }
+input, textarea, [contenteditable="true"], .log-view, .device-code strong, .device-code small, .device-code a { user-select: text; }
+img { -webkit-user-drag: none; }
 
 * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.24) rgba(255,255,255,.035); }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -121,7 +124,7 @@ button { font: inherit; }
   transform: scale(.92);
   transform-origin: 17px 17px;
   pointer-events: none;
-  transition: clip-path .34s cubic-bezier(.2,.82,.2,1), transform .34s cubic-bezier(.2,.82,.2,1), opacity .16s ease;
+  transition: clip-path .34s cubic-bezier(.2,.82,.2,1), transform .34s cubic-bezier(.2,.82,.2,1), opacity .16s ease, border-color .24s ease, box-shadow .3s ease;
 }
 .launcher-menu.is-open .launcher-menu-panel { clip-path: circle(175% at 17px 17px); opacity: 1; transform: scale(1); pointer-events: auto; }
 .launcher-menu-panel nav { display: grid; gap: 3px; }
@@ -249,15 +252,20 @@ button { font: inherit; }
 
 .logs-panel { display: flex; flex: 1; flex-direction: column; gap: 9px; min-height: 0; padding-bottom: 12px; }
 .log-controls { position: relative; display: flex; justify-content: center; flex: none; }
-.log-segmented { display: grid; grid-template-columns: 1fr 1fr; width: min(100%, 360px); height: 36px; padding: 3px; border: 1px solid rgba(255,255,255,.15); border-radius: 18px; background: rgba(8,12,9,.62); }
-.log-segmented button { border: 0; border-radius: 14px; color: rgba(255,255,255,.48); background: transparent; cursor: pointer; font-size: 9px; transition: color .16s ease, background .2s ease, transform .16s ease; }
-.log-segmented button.active { color: #071009; background: var(--accent); font-weight: 750; }
+.log-segmented { position: relative; display: grid; grid-template-columns: 1fr 1fr; width: min(100%, 360px); height: 36px; padding: 3px; overflow: hidden; border: 1px solid rgba(255,255,255,.15); border-radius: 18px; background: rgba(8,12,9,.62); }
+.log-segmented::before { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 14px; background: var(--accent); content: ""; transform: translateX(0); transition: transform .24s cubic-bezier(.2,.8,.2,1), background .2s ease; }
+.log-segmented.is-launcher::before { transform: translateX(100%); }
+.log-segmented button { position: relative; z-index: 1; border: 0; border-radius: 14px; color: rgba(255,255,255,.48); background: transparent; cursor: pointer; font-size: 9px; transition: color .18s ease, transform .16s ease; }
+.log-segmented button.active { color: #071009; font-weight: 750; }
 .scroll-bottom { position: absolute; top: 3px; right: 0; width: 30px; height: 30px; padding: 0; border: 1px solid rgba(255,255,255,.17); border-radius: 50%; color: #fff; background: rgba(15,20,17,.86); cursor: pointer; transition: opacity .16s ease, transform .16s ease; }
 .scroll-bottom.is-hidden { opacity: 0; transform: scale(.8); pointer-events: none; }
 .log-view { flex: 1 1 0; height: 0; min-height: 0; padding: 12px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border-radius: 13px; background: rgba(0,0,0,.48); font-family: Consolas, monospace; font-size: 9px; line-height: 1.65; scroll-behavior: smooth; }
 .log-view p { margin: 0; color: rgba(255,255,255,.66); white-space: pre-wrap; }
+.log-view-wrap { position: relative; flex: 1 1 0; min-height: 0; }
+.log-view-wrap .log-view { width: 100%; height: 100%; }
+.log-view-wrap .scroll-bottom { top: auto; right: 10px; bottom: 10px; }
 
-.settings-grid { display: grid; gap: 8px; width: min(100%, 560px); margin: 0 auto; overflow: auto; }
+.settings-grid { display: grid; flex: 1 1 0; width: min(100%, 560px); min-height: 0; margin: 0 auto; padding: 1px 2px 14px; gap: 8px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .settings-grid article { position: relative; display: grid; gap: 6px; padding: 13px; border: 1px solid rgba(255,255,255,.08); border-radius: 13px; background: rgba(8,12,9,.48); }
 .settings-grid article > span { color: rgba(255,255,255,.45); font-size: 9px; }
 .settings-grid article > strong { font-size: 11px; }
@@ -268,7 +276,7 @@ button { font: inherit; }
 .account-setting > div:nth-child(2) span { color: rgba(255,255,255,.42); font-size: 8px; }
 .account-setting > div:nth-child(2) strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .account-setting > button { border: 0; color: rgba(255,255,255,.58); background: transparent; cursor: pointer; font-size: 9px; }
-.skin-head { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 10px; color: #071009; background-color: var(--accent); background-repeat: no-repeat; background-position: 14.28% 14.28%; background-size: 800%; font-weight: 800; }
+.skin-head { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 10px; color: #071009; background-color: var(--accent); background-repeat: no-repeat; background-position: 14.2857% 14.2857%; background-size: 800% 800%; image-rendering: pixelated; font-weight: 800; }
 .settings-button { position: absolute; top: 12px; right: 12px; height: 28px; padding: 0 10px; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; color: #fff; background: rgba(255,255,255,.07); cursor: pointer; font-size: 8px; }
 .memory-setting > div { display: flex; align-items: center; justify-content: space-between; }
 .memory-setting > div span { color: rgba(255,255,255,.45); font-size: 9px; }
@@ -304,6 +312,16 @@ button { font: inherit; }
   color: #ffd75e;
   border-color: rgba(255,215,94,.45);
   box-shadow: 0 0 0 3px rgba(255,215,94,.1), 0 5px 18px rgba(255,195,40,.16);
+}
+.launcher-menu.has-update .launcher-menu-panel {
+  border-color: rgba(255,215,94,.68);
+  box-shadow: 0 0 0 1px rgba(255,215,94,.08), 0 18px 42px rgba(0,0,0,.28), 0 0 24px rgba(255,195,40,.13);
+}
+.launcher-menu.has-update.is-open .menu-control,
+.launcher-menu.has-update.is-open .menu-control:hover {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 .launcher-menu-panel nav button.has-update,
 .desktop-sidebar nav button.has-update { color: #ffd75e; }

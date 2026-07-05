@@ -9,6 +9,14 @@ use std::{
 use serde::Serialize;
 use tauri::{Emitter, Manager};
 
+fn hide_console(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JavaRuntimeInfo {
@@ -91,7 +99,10 @@ fn collect_java(directory: &Path, results: &mut Vec<PathBuf>, depth: usize) {
 }
 
 pub fn java_major(path: &Path) -> Option<u32> {
-    let output = Command::new(path).arg("-version").output().ok()?;
+    let mut command = Command::new(path);
+    command.arg("-version");
+    hide_console(&mut command);
+    let output = command.output().ok()?;
     let text = String::from_utf8_lossy(&output.stderr);
     let version = text.split('"').nth(1)?;
     let first = version.split('.').next()?.parse::<u32>().ok()?;
@@ -141,7 +152,10 @@ fn discover_java(app_data: &Path, required_major: u32) -> Vec<JavaRuntimeInfo> {
             &mut result,
         );
     }
-    if let Ok(output) = Command::new("where.exe").arg("java.exe").output() {
+    let mut where_java = Command::new("where.exe");
+    where_java.arg("java.exe");
+    hide_console(&mut where_java);
+    if let Ok(output) = where_java.output() {
         for line in String::from_utf8_lossy(&output.stdout).lines() {
             add_candidate(
                 PathBuf::from(line.trim()),
