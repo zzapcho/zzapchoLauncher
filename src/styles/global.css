@@ -8,8 +8,15 @@
 
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-#root { width: 95.2381%; height: 95.2381%; zoom: 1.05; }
+#root { width: 100%; height: 100%; }
 button { font: inherit; }
+
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.24) rgba(255,255,255,.035); }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { margin: 5px 0; border-radius: 999px; background: rgba(255,255,255,.035); }
+*::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: rgba(255,255,255,.24); background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.38); }
+*::-webkit-scrollbar-corner { background: transparent; }
 
 .launcher-shell {
   --accent: #8fe388;
@@ -63,6 +70,7 @@ button { font: inherit; }
 }
 
 .window-titlebar { position: relative; z-index: 20; }
+.login-titlebar { position: absolute; inset: 0 0 auto; height: 54px; }
 .window-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 7px; }
 .floating-control {
   display: grid;
@@ -135,20 +143,22 @@ button { font: inherit; }
 .play-icon { width: 0; height: 0; margin-left: 3px; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-left: 11px solid #071009; }
 .version-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; color: rgba(255,255,255,.78); background: rgba(7,10,8,.48); font-size: 9px; font-weight: 600; backdrop-filter: blur(8px); transition: border-color .15s ease, background .15s ease; }
 .version-badge span { color: var(--accent); }
-.profile-selector { position: relative; z-index: 3; width: 184px; margin: 0 auto; }
-.profile-trigger { display: flex; align-items: center; justify-content: center; width: 100%; height: 36px; padding: 0 12px; border: 1px solid rgba(255,255,255,.2); border-bottom: 0; border-radius: var(--surface-radius) var(--surface-radius) 0 0; color: #fff; background: rgba(10,14,11,.78); backdrop-filter: blur(10px); cursor: pointer; text-align: center; transition: background .15s ease, border-color .15s ease; }
+.profile-selector { position: relative; z-index: 3; width: 184px; height: 36px; margin: 0 auto; transition: width .28s cubic-bezier(.2,.8,.2,1); }
+.profile-selector.is-open { width: 216px; }
+.profile-trigger { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; width: 100%; height: 36px; padding: 0 12px; border: 1px solid rgba(255,255,255,.2); border-bottom: 0; border-radius: var(--surface-radius) var(--surface-radius) 0 0; color: #fff; background: rgba(10,14,11,.82); backdrop-filter: blur(10px); cursor: pointer; text-align: center; transition: opacity .14s ease, transform .24s cubic-bezier(.2,.8,.2,1), width .28s cubic-bezier(.2,.8,.2,1), background .15s ease, border-color .15s ease; }
+.profile-selector.is-open .profile-trigger { opacity: 0; transform: scale(.96); pointer-events: none; }
 .profile-trigger:hover:not(:disabled) { background: rgba(30,36,31,.96); }
 .profile-trigger:disabled { opacity: .55; cursor: wait; }
 .profile-trigger strong { overflow: hidden; font-size: 11px; font-weight: 650; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
-.profile-menu { position: absolute; right: 0; bottom: calc(100% + 5px); left: 0; padding: 6px; border: 1px solid rgba(255,255,255,.2); border-radius: var(--surface-radius); background: rgba(17,23,19,.9); box-shadow: 0 12px 28px rgba(0,0,0,.22); backdrop-filter: blur(12px); opacity: 0; transform: translateY(14px) scale(.96); transform-origin: bottom center; pointer-events: none; transition: opacity .2s ease, transform .28s cubic-bezier(.18,.82,.2,1); }
-.profile-menu.is-open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.profile-menu { position: absolute; right: 0; bottom: 0; left: 0; padding: 6px; border: 1px solid rgba(255,255,255,.2); border-bottom: 0; border-radius: var(--surface-radius) var(--surface-radius) 0 0; background: rgba(17,23,19,.9); box-shadow: 0 -12px 28px rgba(0,0,0,.18); backdrop-filter: blur(12px); clip-path: inset(calc(100% - 36px) 16px 0 round var(--surface-radius) var(--surface-radius) 0 0); opacity: 0; transform-origin: bottom center; pointer-events: none; transition: clip-path .32s cubic-bezier(.18,.82,.2,1), opacity .14s ease; }
+.profile-menu.is-open { clip-path: inset(0 0 0 round var(--surface-radius) var(--surface-radius) 0 0); opacity: 1; pointer-events: auto; }
 .profile-menu-label { margin: 3px 8px 7px; color: rgba(255,255,255,.43); font-size: 8px; font-weight: 800; letter-spacing: .1em; }
-.profile-options { max-height: 120px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scroll-snap-type: y proximity; }
+.profile-options { max-height: 160px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .profile-menu button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; width: 100%; padding: 8px; border: 0; border-radius: 11px; color: #fff; background: transparent; cursor: pointer; text-align: left; }
-.profile-options button { min-height: 40px; scroll-snap-align: center; }
-.profile-menu.has-overflow::before, .profile-menu.has-overflow::after { content: ""; position: absolute; right: 6px; left: 6px; z-index: 2; height: 11px; pointer-events: none; backdrop-filter: blur(4px); opacity: .7; }
-.profile-menu.has-overflow::before { top: 27px; border-radius: 8px 8px 0 0; mask-image: linear-gradient(#000, transparent); }
-.profile-menu.has-overflow::after { bottom: 6px; border-radius: 0 0 8px 8px; mask-image: linear-gradient(transparent, #000); }
+.profile-options button { min-height: 40px; }
+.profile-menu.has-overflow::before, .profile-menu.has-overflow::after { content: ""; position: absolute; right: 11px; left: 6px; z-index: 2; height: 10px; pointer-events: none; opacity: .72; }
+.profile-menu.has-overflow::before { top: 27px; background: linear-gradient(rgba(17,23,19,.92), transparent); }
+.profile-menu.has-overflow::after { bottom: 6px; background: linear-gradient(transparent, rgba(17,23,19,.92)); }
 .profile-menu button:hover, .profile-menu button.selected { background: rgba(255,255,255,.09); }
 .profile-menu button strong { display: block; font-size: 11px; }
 .profile-dot { width: 6px; height: 6px; border-radius: 1px; }
@@ -195,6 +205,7 @@ button { font: inherit; }
 .content-manager > * + * { margin-top: 12px; }
 .content-list { display: grid; gap: 7px; }
 .content-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 9px; min-height: 49px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 13px; background: rgba(8,12,9,.48); transition: opacity .18s ease, transform .18s ease, background .18s ease; }
+.content-row, .modrinth-results article { content-visibility: auto; contain-intrinsic-size: auto 49px; }
 .content-row.is-disabled { opacity: .48; }
 .content-row:hover { background: rgba(24,30,25,.72); }
 .content-name { min-width: 0; }
@@ -270,8 +281,10 @@ button { font: inherit; }
 .hero + .profile-selector, .profile-selector { animation: home-view-in .24s ease-out; }
 
 .empty-state { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 100%; color: rgba(255,255,255,.65); background: #0b100c; font-size: 12px; }
-.login-screen { display: grid; width: 100%; height: 100%; place-items: center; padding: 24px; color: #fff; background: #0b1511; text-align: center; }
+.login-screen { --control-size: 34px; position: relative; display: grid; width: 100%; height: 100%; place-items: center; padding: 24px; color: #fff; background: #0b1511; text-align: center; }
 .login-screen > p { color: rgba(255,255,255,.55); font-size: 10px; }
+.login-status { display: grid; width: min(290px, 100%); place-items: center; gap: 10px; }
+.login-status > p { color: rgba(255,255,255,.55); font-size: 10px; }
 .login-card { display: grid; width: min(100%, 320px); gap: 11px; justify-items: center; }
 .login-mark { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 18px; color: #071009; background: #8fe388; font-size: 28px; font-weight: 900; }
 .login-card h1, .login-card p { margin: 0; }

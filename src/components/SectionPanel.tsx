@@ -36,13 +36,16 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   const [hasMore, setHasMore] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const managerRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false);
   const editable = profile.editableFields[kind];
   const entries = content.state[kind];
   const title = sectionCopy[kind === "resourcePacks" ? "resource-packs" : kind].title;
 
   const loadProjects = async (search = "", reset = true) => {
-    if (loading) return;
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     try {
       const offset = reset ? 0 : projects.length;
@@ -51,7 +54,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
       setHasMore(offset + result.hits.length < result.total);
     }
     catch (error) { console.warn(error); if (reset) setProjects([]); setHasMore(false); }
-    finally { setLoading(false); }
+    finally { loadingRef.current = false; setLoading(false); }
   };
 
   useEffect(() => { setQuery(""); setHasMore(true); void loadProjects("", true); }, [kind, profile.id]);
@@ -61,7 +64,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     if (!target) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && hasMore && !loading) void loadProjects(query, false);
-    }, { rootMargin: "100px" });
+    }, { root: managerRef.current, rootMargin: "100px" });
     observer.observe(target);
     return () => observer.disconnect();
   }, [hasMore, loading, projects.length, query, kind, profile.id]);
@@ -109,7 +112,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   };
 
   return (
-    <div className="content-manager">
+    <div className="content-manager" ref={managerRef}>
       <div className="content-list">
         {entries.length ? entries.map((entry) => (
           <div className={`content-row${entry.enabled ? "" : " is-disabled"}`} key={entry.id}>
@@ -140,7 +143,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
             {!projects.length && loading ? <div className="inline-loading">불러오는 중...</div> : projects.map((project) => {
               const installed = entries.some((entry) => entry.projectId === project.project_id);
               return <article key={project.project_id}>
-                {project.icon_url ? <img src={project.icon_url} alt="" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" /> : <span className="project-placeholder" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" />}
+                {project.icon_url ? <img src={project.icon_url} alt="" loading="lazy" decoding="async" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" /> : <span className="project-placeholder" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" />}
                 <div><strong>{project.title}</strong><small>{project.author} · {Intl.NumberFormat("ko-KR", { notation: "compact" }).format(project.downloads)} 다운로드</small></div>
                 <button type="button" disabled={installed || installing === project.project_id} onClick={() => void installProject(project)}>{installed ? "설치됨" : installing === project.project_id ? "설치 중" : "설치"}</button>
               </article>;

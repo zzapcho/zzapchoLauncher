@@ -78,7 +78,7 @@ export function LauncherMenu({ activeSection, onNavigate }: LauncherMenuProps) {
   return (
     <>
       <div className={`launcher-menu${open ? " is-open" : ""}`} ref={menuRef}>
-        <div className="launcher-menu-panel" aria-hidden={!open} ref={panelRef} onWheel={(event) => { event.preventDefault(); moveFocus(event.deltaY > 0 ? 1 : -1); }} onKeyDown={(event) => {
+        <div className="launcher-menu-panel" aria-hidden={!open} ref={panelRef} onKeyDown={(event) => {
           if (event.key === "ArrowDown") { event.preventDefault(); moveFocus(1); }
           if (event.key === "ArrowUp") { event.preventDefault(); moveFocus(-1); }
         }}>

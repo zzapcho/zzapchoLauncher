@@ -1,5 +1,95 @@
 use std::{fs, path::{Path, PathBuf}, process::Command};
+use serde::{Deserialize, Serialize};
 use tauri::Manager;
+
+const MICROSOFT_CLIENT_ID: &str = "00000000402b5328";
+const MICROSOFT_SCOPE: &str = "XboxLive.signin offline_access";
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
+struct DeviceCode {
+    device_code: String,
+    user_code: String,
+    verification_uri: String,
+    expires_in: u64,
+    interval: u64,
+}
+
+#[derive(Deserialize)]
+struct MicrosoftToken {
+    access_token: String,
+    refresh_token: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LauncherAccount {
+    id: String,
+    name: String,
+    skin_url: Option<String>,
+    kind: &'static str,
+    minecraft_access_token: String,
+}
+
+fn auth_error(payload: &serde_json::Value, fallback: &str) -> String {
+    payload.get("error_description").or_else(|| payload.get("error"))
+        .and_then(|value| value.as_str()).unwrap_or(fallback).to_string()
+}
+
+async fn microsoft_token(params: &[(&str, &str)]) -> Result<(reqwest::StatusCode, serde_json::Value), String> {
+    let response = reqwest::Client::new().post("https://login.live.com/oauth20_token.srf")
+        .form(params).send().await.map_err(|error| error.to_string())?;
+    let status = response.status();
+    let payload = response.json::<serde_json::Value>().await.map_err(|error| error.to_string())?;
+    Ok((status, payload))
+}
+
+async fn exchange_for_minecraft(token: MicrosoftToken, previous_refresh: Option<String>) -> Result<LauncherAccount, String> {
+    let client = reqwest::Client::new();
+    let xbox_response = client.post("https://user.auth.xboxlive.com/user/authenticate")
+        .json(&serde_json::json!({
+            "Properties": { "AuthMethod": "RPS", "SiteName": "user.auth.xboxlive.com", "RpsTicket": format!("d={}", token.access_token) },
+            "RelyingParty": "http://auth.xboxlive.com",
+            "TokenType": "JWT"
+        }))
+        .send().await.map_err(|error| error.to_string())?;
+    if !xbox_response.status().is_success() { return Err("Xbox Live 인증에 실패했습니다.".into()); }
+    let xbox = xbox_response.json::<serde_json::Value>().await.map_err(|error| error.to_string())?;
+    let xbox_token = xbox.get("Token").and_then(|value| value.as_str()).ok_or("Xbox Live 토큰을 확인하지 못했습니다.")?;
+    let user_hash = xbox.pointer("/DisplayClaims/xui/0/uhs").and_then(|value| value.as_str()).ok_or("Xbox 사용자 정보를 확인하지 못했습니다.")?;
+
+    let xsts_response = client.post("https://xsts.auth.xboxlive.com/xsts/authorize")
+        .json(&serde_json::json!({
+            "Properties": { "SandboxId": "RETAIL", "UserTokens": [xbox_token] },
+            "RelyingParty": "rp://api.minecraftservices.com/",
+            "TokenType": "JWT"
+        }))
+        .send().await.map_err(|error| error.to_string())?;
+    if !xsts_response.status().is_success() { return Err("Xbox 계정 권한을 확인하지 못했습니다.".into()); }
+    let xsts = xsts_response.json::<serde_json::Value>().await.map_err(|error| error.to_string())?;
+    let xsts_token = xsts.get("Token").and_then(|value| value.as_str()).ok_or("Xbox XSTS 토큰을 확인하지 못했습니다.")?;
+
+    let minecraft_response = client.post("https://api.minecraftservices.com/authentication/login_with_xbox")
+        .json(&serde_json::json!({ "identityToken": format!("XBL3.0 x={user_hash};{xsts_token}") }))
+        .send().await.map_err(|error| error.to_string())?;
+    if !minecraft_response.status().is_success() { return Err("Minecraft 서비스 로그인에 실패했습니다.".into()); }
+    let minecraft = minecraft_response.json::<serde_json::Value>().await.map_err(|error| error.to_string())?;
+    let minecraft_access_token = minecraft.get("access_token").and_then(|value| value.as_str()).ok_or("Minecraft 접근 토큰을 확인하지 못했습니다.")?.to_string();
+
+    let profile_response = client.get("https://api.minecraftservices.com/minecraft/profile")
+        .bearer_auth(&minecraft_access_token).send().await.map_err(|error| error.to_string())?;
+    if !profile_response.status().is_success() { return Err("Minecraft Java Edition 프로필을 찾지 못했습니다.".into()); }
+    let profile = profile_response.json::<serde_json::Value>().await.map_err(|error| error.to_string())?;
+    let id = profile.get("id").and_then(|value| value.as_str()).ok_or("Minecraft 프로필 ID를 확인하지 못했습니다.")?.to_string();
+    let name = profile.get("name").and_then(|value| value.as_str()).ok_or("Minecraft 프로필 이름을 확인하지 못했습니다.")?.to_string();
+    let skin_url = profile.pointer("/skins/0/url").and_then(|value| value.as_str()).map(str::to_string);
+
+    let refresh_token = token.refresh_token.or(previous_refresh).ok_or("Microsoft 재로그인 토큰을 받지 못했습니다.")?;
+    keyring::Entry::new("zzapchoLauncher", "microsoft-refresh-token").map_err(|error| error.to_string())?
+        .set_password(&refresh_token).map_err(|error| error.to_string())?;
+
+    Ok(LauncherAccount { id, name, skin_url, kind: "microsoft", minecraft_access_token })
+}
 
 fn safe_segment(value: &str) -> String {
     value.chars().map(|character| {
@@ -42,8 +132,63 @@ fn open_external_url(url: String) -> Result<(), String> {
     let parsed = reqwest::Url::parse(&url).map_err(|error| error.to_string())?;
     let allowed = parsed.scheme() == "https" && matches!(parsed.host_str(), Some("modrinth.com") | Some("www.modrinth.com") | Some("login.microsoftonline.com") | Some("microsoft.com") | Some("www.microsoft.com"));
     if !allowed { return Err("허용되지 않은 외부 주소입니다.".into()); }
-    Command::new("explorer.exe").arg(parsed.as_str()).spawn().map_err(|error| error.to_string())?;
+    Command::new("rundll32.exe")
+        .arg("url.dll,FileProtocolHandler")
+        .arg(parsed.as_str())
+        .spawn()
+        .map_err(|error| error.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+async fn begin_microsoft_device_login() -> Result<DeviceCode, String> {
+    let response = reqwest::Client::new().post("https://login.live.com/oauth20_connect.srf")
+        .form(&[
+            ("client_id", MICROSOFT_CLIENT_ID),
+            ("scope", MICROSOFT_SCOPE),
+            ("response_type", "device_code"),
+        ])
+        .send().await.map_err(|error| error.to_string())?;
+    let status = response.status();
+    let payload = response.json::<serde_json::Value>().await.map_err(|error| error.to_string())?;
+    if !status.is_success() { return Err(auth_error(&payload, "Microsoft 로그인 코드를 만들지 못했습니다.")); }
+    serde_json::from_value(payload).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn poll_microsoft_device_login(device_code: String) -> Result<Option<LauncherAccount>, String> {
+    let (status, payload) = microsoft_token(&[
+        ("client_id", MICROSOFT_CLIENT_ID),
+        ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
+        ("device_code", &device_code),
+    ]).await?;
+    if status.is_success() {
+        let token = serde_json::from_value::<MicrosoftToken>(payload).map_err(|error| error.to_string())?;
+        return exchange_for_minecraft(token, None).await.map(Some);
+    }
+    match payload.get("error").and_then(|value| value.as_str()) {
+        Some("authorization_pending") | Some("slow_down") => Ok(None),
+        _ => Err(auth_error(&payload, "Microsoft 로그인이 취소되었거나 만료됐습니다.")),
+    }
+}
+
+#[tauri::command]
+async fn restore_microsoft_account() -> Result<Option<LauncherAccount>, String> {
+    let entry = keyring::Entry::new("zzapchoLauncher", "microsoft-refresh-token").map_err(|error| error.to_string())?;
+    let refresh_token = match entry.get_password() {
+        Ok(value) => value,
+        Err(keyring::Error::NoEntry) => return Ok(None),
+        Err(error) => return Err(error.to_string()),
+    };
+    let (status, payload) = microsoft_token(&[
+        ("client_id", MICROSOFT_CLIENT_ID),
+        ("grant_type", "refresh_token"),
+        ("refresh_token", &refresh_token),
+        ("scope", MICROSOFT_SCOPE),
+    ]).await?;
+    if !status.is_success() { return Err(auth_error(&payload, "Microsoft 자동 로그인에 실패했습니다.")); }
+    let token = serde_json::from_value::<MicrosoftToken>(payload).map_err(|error| error.to_string())?;
+    exchange_for_minecraft(token, Some(refresh_token)).await.map(Some)
 }
 
 #[tauri::command]
@@ -97,7 +242,7 @@ async fn download_content_file(app: tauri::AppHandle, profile_id: String, kind: 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open_content_folder, open_game_folder, open_external_url, store_auth_secret, load_auth_secret, delete_auth_secret, install_content_file, download_content_file])
+        .invoke_handler(tauri::generate_handler![open_content_folder, open_game_folder, open_external_url, begin_microsoft_device_login, poll_microsoft_device_login, restore_microsoft_account, store_auth_secret, load_auth_secret, delete_auth_secret, install_content_file, download_content_file])
         .run(tauri::generate_context!())
         .expect("error while running zzapcho Launcher");
 }

@@ -10,15 +10,9 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
-## Microsoft 로그인 설정
+## Microsoft 로그인
 
-Microsoft Entra에 공개 클라이언트(데스크톱 앱)를 등록하고 `.env.example`을 `.env`로 복사한 뒤 Client ID를 설정합니다.
-
-```env
-VITE_MICROSOFT_CLIENT_ID=your-client-id
-```
-
-로그인은 Microsoft Device Code 흐름을 사용합니다. 계정 표시 정보는 로컬 저장소에, 자동 로그인용 refresh token은 Windows 자격 증명 관리자에 저장됩니다. Client ID가 없으면 UI 확인용 미리보기 계정으로 진입할 수 있습니다.
+로그인 버튼을 누르면 Minecraft 기본 런처처럼 기본 브라우저에 Microsoft 계정 선택 화면이 열리고, 완료되면 런처로 돌아옵니다. `zzapcho-online`과 동일하게 Mojang 공개 클라이언트와 Xbox Live 인증을 사용하며 별도의 Client ID 입력은 필요하지 않습니다. 계정 표시 정보는 로컬 저장소에, 갱신 토큰은 Windows 자격 증명 관리자에 저장됩니다.
 
 현재 계정 인증과 Minecraft Services 프로필 조회까지 연결되어 있습니다. 게임 파일 설치, Java 탐색 및 실제 Minecraft 프로세스 실행은 아직 mock 상태입니다.
 

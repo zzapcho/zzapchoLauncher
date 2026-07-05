@@ -10,9 +10,7 @@ interface ProfileSelectorProps {
 
 export function ProfileSelector({ profiles, selectedProfile, onSelect, disabled }: ProfileSelectorProps) {
   const [open, setOpen] = useState(false);
-  const [focusedIndex, setFocusedIndex] = useState(0);
   const selectorRef = useRef<HTMLDivElement>(null);
-  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -27,38 +25,19 @@ export function ProfileSelector({ profiles, selectedProfile, onSelect, disabled 
     };
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const index = Math.max(0, profiles.findIndex((profile) => profile.id === selectedProfile.id));
-    setFocusedIndex(index);
-    requestAnimationFrame(() => optionRefs.current[index]?.focus());
-  }, [open, profiles, selectedProfile.id]);
-
-  const focusOption = (index: number) => {
-    const next = (index + profiles.length) % profiles.length;
-    setFocusedIndex(next);
-    optionRefs.current[next]?.focus();
-    optionRefs.current[next]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  };
-
   return (
-    <div className="profile-selector" ref={selectorRef}>
-        <div className={`profile-menu${open ? " is-open" : ""}${profiles.length > 3 ? " has-overflow" : ""}`} role="listbox" aria-label="프로필 목록" aria-hidden={!open}>
+    <div className={`profile-selector${open ? " is-open" : ""}`} ref={selectorRef}>
+        <div className={`profile-menu${open ? " is-open" : ""}${profiles.length > 4 ? " has-overflow" : ""}`} role="listbox" aria-label="프로필 목록" aria-hidden={!open}>
           <p className="profile-menu-label">프로필 선택</p>
-          <div className="profile-options" onWheel={(event) => { event.preventDefault(); focusOption(focusedIndex + (event.deltaY > 0 ? 1 : -1)); }} onKeyDown={(event) => {
-            if (event.key === "ArrowDown") { event.preventDefault(); focusOption(focusedIndex + 1); }
-            if (event.key === "ArrowUp") { event.preventDefault(); focusOption(focusedIndex - 1); }
-          }}>
-          {profiles.map((profile, index) => (
+          <div className="profile-options">
+          {profiles.map((profile) => (
             <button
               type="button"
               role="option"
               aria-selected={profile.id === selectedProfile.id}
               className={profile.id === selectedProfile.id ? "selected" : ""}
               key={profile.id}
-              ref={(element) => { optionRefs.current[index] = element; }}
               tabIndex={open ? 0 : -1}
-              onFocus={() => setFocusedIndex(index)}
               onClick={() => { onSelect(profile.id); setOpen(false); }}
             >
               <span className="profile-dot" style={{ backgroundColor: profile.accentColor }} />
