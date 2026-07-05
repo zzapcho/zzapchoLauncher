@@ -4,6 +4,7 @@ import { LAUNCHER_NAV_ITEMS, type LauncherSection } from "../types/navigation";
 interface LauncherMenuProps {
   activeSection: LauncherSection;
   onNavigate: (section: LauncherSection) => void;
+  updateAvailable?: boolean;
 }
 
 function NavIcon({ section }: { section: LauncherSection }) {
@@ -18,14 +19,14 @@ function NavIcon({ section }: { section: LauncherSection }) {
   return <svg className={`nav-icon nav-icon-${section}`} viewBox="0 0 24 24" aria-hidden="true">{paths[section]}</svg>;
 }
 
-function NavigationList({ activeSection, onNavigate, tabIndex }: LauncherMenuProps & { tabIndex?: number }) {
+function NavigationList({ activeSection, onNavigate, updateAvailable, tabIndex }: LauncherMenuProps & { tabIndex?: number }) {
   return (
     <nav aria-label="런처 메뉴">
       {LAUNCHER_NAV_ITEMS.map((item) => (
         <button
           key={item.id}
           type="button"
-          className={activeSection === item.id ? "active" : ""}
+          className={`${activeSection === item.id ? "active" : ""}${updateAvailable && item.id === "settings" ? " has-update" : ""}`}
           tabIndex={tabIndex}
           onClick={() => onNavigate(item.id)}
         >
@@ -37,7 +38,7 @@ function NavigationList({ activeSection, onNavigate, tabIndex }: LauncherMenuPro
   );
 }
 
-export function LauncherMenu({ activeSection, onNavigate }: LauncherMenuProps) {
+export function LauncherMenu({ activeSection, onNavigate, updateAvailable }: LauncherMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -77,12 +78,12 @@ export function LauncherMenu({ activeSection, onNavigate }: LauncherMenuProps) {
 
   return (
     <>
-      <div className={`launcher-menu${open ? " is-open" : ""}`} ref={menuRef}>
+      <div className={`launcher-menu${open ? " is-open" : ""}${updateAvailable ? " has-update" : ""}`} ref={menuRef}>
         <div className="launcher-menu-panel" aria-hidden={!open} ref={panelRef} onKeyDown={(event) => {
           if (event.key === "ArrowDown") { event.preventDefault(); moveFocus(1); }
           if (event.key === "ArrowUp") { event.preventDefault(); moveFocus(-1); }
         }}>
-          <NavigationList activeSection={activeSection} onNavigate={navigate} tabIndex={open ? 0 : -1} />
+          <NavigationList activeSection={activeSection} onNavigate={navigate} updateAvailable={updateAvailable} tabIndex={open ? 0 : -1} />
         </div>
         <button
           type="button"
@@ -95,7 +96,7 @@ export function LauncherMenu({ activeSection, onNavigate }: LauncherMenuProps) {
         </button>
       </div>
       <aside className="desktop-sidebar">
-        <NavigationList activeSection={activeSection} onNavigate={navigate} />
+        <NavigationList activeSection={activeSection} onNavigate={navigate} updateAvailable={updateAvailable} />
       </aside>
     </>
   );

@@ -295,6 +295,55 @@ button { font: inherit; }
 .preview-login { border: 1px solid rgba(255,255,255,.16); color: #fff; background: rgba(255,255,255,.06); }
 .login-config { color: rgba(255,255,255,.35); font-size: 8px; line-height: 1.5; }
 .login-error { color: #ff8d95 !important; }
+.preview-login { display: none !important; }
+.login-screen:has(.login-status) .window-action.close,
+.update-screen .window-action.close { display: none; }
+
+.launcher-menu.has-update .menu-control {
+  color: #ffd75e;
+  border-color: rgba(255,215,94,.45);
+  box-shadow: 0 0 0 3px rgba(255,215,94,.1), 0 5px 18px rgba(255,195,40,.16);
+}
+.launcher-menu-panel nav button.has-update,
+.desktop-sidebar nav button.has-update { color: #ffd75e; }
+.launcher-menu-panel nav button.has-update::after,
+.desktop-sidebar nav button.has-update::after {
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: #ffd75e;
+  box-shadow: 0 0 8px rgba(255,215,94,.65);
+  content: "";
+}
+
+.settings-grid > article:nth-of-type(4),
+.settings-grid > article:nth-of-type(5) { display: none; }
+.update-setting.is-available {
+  border-color: rgba(255,215,94,.32);
+  background: rgba(255,205,70,.08);
+}
+.update-setting.is-available > strong { color: #ffd75e; }
+.update-button:disabled { cursor: wait; opacity: .55; }
+
+.update-screen {
+  --control-size: 34px;
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 24px;
+  color: #fff;
+  background: #0b1511;
+  text-align: center;
+}
+.update-status { display: grid; width: min(320px, 80vw); place-items: center; gap: 10px; }
+.update-status h1, .update-status p { margin: 0; }
+.update-status h1 { margin-top: 4px; font-size: 19px; }
+.update-status p, .update-status small { color: rgba(255,255,255,.5); font-size: 9px; }
+.update-progress { overflow: hidden; width: 100%; height: 5px; margin-top: 10px; border-radius: 999px; background: rgba(255,255,255,.09); }
+.update-progress span { display: block; height: 100%; border-radius: inherit; background: #8fe388; transition: width .18s ease; }
 .device-code { display: grid; width: 100%; gap: 5px; padding: 12px; border: 1px solid rgba(255,255,255,.14); border-radius: 14px; background: rgba(255,255,255,.05); }
 .device-code small, .device-code span { color: rgba(255,255,255,.45); font-size: 8px; }
 .device-code strong { color: #8fe388; font-size: 20px; letter-spacing: .12em; }

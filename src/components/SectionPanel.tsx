@@ -10,12 +10,14 @@ import type { ContentKind } from "../types/content";
 import type { LauncherProfile } from "../types/profile";
 import type { LauncherSection } from "../types/navigation";
 import type { LauncherAccount } from "../types/auth";
+import type { AppUpdateState } from "../hooks/useAppUpdate";
 
 interface SectionPanelProps {
   profile: LauncherProfile;
   section: Exclude<LauncherSection, "home">;
   account: LauncherAccount;
   onLogout: () => Promise<void>;
+  appUpdate: AppUpdateState;
 }
 
 const isTauri = () => "__TAURI_INTERNALS__" in window;
@@ -193,7 +195,7 @@ function LogsPanel() {
   </div>;
 }
 
-function SettingsPanel({ account, onLogout }: { account: LauncherAccount; onLogout: () => Promise<void> }) {
+function SettingsPanel({ account, onLogout, appUpdate }: { account: LauncherAccount; onLogout: () => Promise<void>; appUpdate: AppUpdateState }) {
   const { settings, setMemoryGb } = useUserSettings();
   const [editingMemory, setEditingMemory] = useState(false);
   return <div className="settings-grid">
@@ -209,11 +211,18 @@ function SettingsPanel({ account, onLogout }: { account: LauncherAccount; onLogo
     <article><span>게임 폴더</span><strong>.minecraft</strong><button className="settings-button" type="button" onClick={() => { if (isTauri()) void invoke("open_game_folder"); }}>폴더 열기</button></article>
     <article><span>업데이트</span><strong>최신 버전</strong><small>manifest 자동 업데이트 준비됨</small></article>
     <article><span>정보</span><strong>zzapcho Launcher 0.1.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article className={`update-setting${appUpdate.available ? " is-available" : ""}`}>
+      <span>업데이트</span>
+      <strong>{appUpdate.available ? `버전 ${appUpdate.version} 사용 가능` : "최신 버전"}</strong>
+      <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
+      <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
+    </article>
+    <article><span>정보</span><strong>zzapcho Launcher 0.2.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <footer>made by zzapcho</footer>
   </div>;
 }
 
-export function SectionPanel({ profile, section, account, onLogout }: SectionPanelProps) {
+export function SectionPanel({ profile, section, account, onLogout, appUpdate }: SectionPanelProps) {
   const copy = sectionCopy[section];
   const contentKind: ContentKind | null = section === "mods" ? "mods" : section === "resource-packs" ? "resourcePacks" : section === "shaders" ? "shaders" : null;
   return (
@@ -221,7 +230,7 @@ export function SectionPanel({ profile, section, account, onLogout }: SectionPan
       <header><h2>{copy.title}</h2></header>
       {contentKind && <ContentManager key={`${profile.id}-${contentKind}`} profile={profile} kind={contentKind} />}
       {section === "logs" && <LogsPanel />}
-      {section === "settings" && <SettingsPanel account={account} onLogout={onLogout} />}
+      {section === "settings" && <SettingsPanel account={account} onLogout={onLogout} appUpdate={appUpdate} />}
     </section>
   );
 }

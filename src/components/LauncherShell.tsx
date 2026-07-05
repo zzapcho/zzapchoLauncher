@@ -10,6 +10,7 @@ import { WindowControls } from "./WindowControls";
 import { SectionPanel } from "./SectionPanel";
 import type { LauncherSection } from "../types/navigation";
 import type { LauncherAccount } from "../types/auth";
+import type { AppUpdateState } from "../hooks/useAppUpdate";
 
 interface LauncherShellProps {
   profiles: LauncherProfile[];
@@ -18,9 +19,10 @@ interface LauncherShellProps {
   loading: boolean;
   account: LauncherAccount;
   onLogout: () => Promise<void>;
+  appUpdate: AppUpdateState;
 }
 
-export function LauncherShell({ profiles, selectedProfile, selectProfile, loading, account, onLogout }: LauncherShellProps) {
+export function LauncherShell({ profiles, selectedProfile, selectProfile, loading, account, onLogout, appUpdate }: LauncherShellProps) {
   const accent = useAccentColor(selectedProfile);
   const [status, setStatus] = useState<LaunchStatus>("idle");
   const [activeSection, setActiveSection] = useState<LauncherSection>("home");
@@ -83,7 +85,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
   return (
     <main className={`launcher-shell${switchingProfile ? " is-profile-switching" : ""}${wideLayout ? " is-wide" : ""}`} style={{ "--accent": accent, "--background": background } as React.CSSProperties}>
       <div className="edge-distortion" aria-hidden="true" />
-      <WindowControls activeSection={activeSection} onNavigate={setActiveSection} />
+      <WindowControls activeSection={activeSection} onNavigate={setActiveSection} updateAvailable={appUpdate.available} />
 
       {activeSection === "home" ? <section className="hero" aria-label={`${selectedProfile.name} 실행`}>
         <div className="profile-copy">
@@ -91,7 +93,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, loadin
         </div>
         <PlayButton busy={busy} onClick={handleLaunch} />
         <VersionBadge profile={selectedProfile} />
-      </section> : <SectionPanel profile={selectedProfile} section={activeSection} account={account} onLogout={onLogout} />}
+      </section> : <SectionPanel profile={selectedProfile} section={activeSection} account={account} onLogout={onLogout} appUpdate={appUpdate} />}
 
       {activeSection === "home" && <ProfileSelector profiles={profiles} selectedProfile={selectedProfile} onSelect={changeProfile} disabled={busy} />}
     </main>

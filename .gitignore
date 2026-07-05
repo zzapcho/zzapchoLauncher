@@ -7,3 +7,4 @@ src-tauri/gen/
 *.log
 Backups/*.zip
 !Backups/.gitkeep
+.tauri-updater.key*

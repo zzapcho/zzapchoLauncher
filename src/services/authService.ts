@@ -40,16 +40,10 @@ export async function loginWithMicrosoft(onCode: (info: DeviceCodeInfo) => void)
 
 export async function restoreAccount(): Promise<LauncherAccount | null> {
   const stored = getStoredAccount();
-  if (stored?.kind === "preview") return stored;
+  if (stored?.kind === "preview") localStorage.removeItem(ACCOUNT_KEY);
   if (!isTauri()) return null;
   const account = await invoke<LauncherAccount | null>("restore_microsoft_account");
   if (account) saveAccount(account);
-  return account;
-}
-
-export function createPreviewAccount(): LauncherAccount {
-  const account: LauncherAccount = { id: "preview", name: "Preview Player", kind: "preview" };
-  saveAccount(account);
   return account;
 }
 
