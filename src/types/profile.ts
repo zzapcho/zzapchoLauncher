@@ -6,9 +6,17 @@ export interface ContentEntry {
   version: string;
   required: boolean;
   url: string;
+  sha256?: string;
+}
+
+export interface DefaultServer {
+  name: string;
+  address: string;
+  port: number;
 }
 
 export interface EditableFields {
+  server?: boolean;
   mods: boolean;
   resourcePacks: boolean;
   shaders: boolean;
@@ -29,6 +37,7 @@ export interface LauncherProfile {
   modLoader: ModLoader;
   modLoaderVersion: string;
   javaVersion?: number;
+  defaultServer?: DefaultServer;
   mods: ContentEntry[];
   resourcePacks: ContentEntry[];
   shaders: ContentEntry[];
