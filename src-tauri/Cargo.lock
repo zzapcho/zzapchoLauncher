@@ -5788,7 +5788,7 @@ dependencies = [
 
 [[package]]
 name = "zzapcho-launcher"
-version = "0.2.0"
+version = "0.3.2"
 dependencies = [
  "keyring",
  "mc-launcher-core",

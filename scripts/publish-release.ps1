@@ -39,8 +39,10 @@ function Get-NextPatchVersion([string]$CurrentVersion) {
 
 function Set-TextVersion([string]$Path, [string]$Pattern, [string]$Replacement) {
     $content = [IO.File]::ReadAllText($Path)
+    if (![Text.RegularExpressions.Regex]::IsMatch($content, $Pattern)) {
+        throw "Could not find version field in $Path"
+    }
     $updated = [Text.RegularExpressions.Regex]::Replace($content, $Pattern, $Replacement, 1)
-    if ($updated -eq $content) { throw "Could not update version in $Path" }
     [IO.File]::WriteAllText($Path, $updated, [Text.UTF8Encoding]::new($false))
 }
 
@@ -86,7 +88,7 @@ if ($ValidateOnly) {
 }
 
 Write-Step "Updating version to $Version"
-Invoke-Checked $Npm @("version", $Version, "--no-git-tag-version")
+Invoke-Checked $Npm @("version", $Version, "--no-git-tag-version", "--allow-same-version")
 Set-TextVersion $ConfigPath '("version"\s*:\s*")[^"]+("\s*,)' "`${1}$Version`${2}"
 Set-TextVersion $CargoPath '(?m)^(version\s*=\s*")[^"]+("\s*)$' "`${1}$Version`${2}"
 $SectionPath = Join-Path $ProjectRoot "src\components\SectionPanel.tsx"
@@ -97,7 +99,7 @@ if (Test-Path -LiteralPath $SectionPath) {
 }
 
 Write-Step "Installing dependencies and running checks"
-Invoke-Checked $Npm @("ci")
+Invoke-Checked $Npm @("install")
 Invoke-Checked $Npm @("run", "build")
 Invoke-Checked $Cargo @("fmt", "--manifest-path", "src-tauri\Cargo.toml", "--", "--check")
 Invoke-Checked $Cargo @("check", "--manifest-path", "src-tauri\Cargo.toml")
@@ -106,14 +108,15 @@ Write-Step "Creating source backup"
 Invoke-Checked "powershell.exe" @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts\backup.ps1", "-BackupName", "release-v$Version")
 
 Write-Step "Building signed Windows installers"
-$env:TAURI_SIGNING_PRIVATE_KEY = [IO.File]::ReadAllText($KeyPath)
-$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+$tauriConfig = [IO.File]::ReadAllText($ConfigPath)
+$buildConfig = $tauriConfig -replace '"createUpdaterArtifacts"\s*:\s*true', '"createUpdaterArtifacts": false'
+if ($buildConfig -eq $tauriConfig) { throw "Could not disable automatic updater signing for the build." }
+[IO.File]::WriteAllText($ConfigPath, $buildConfig, [Text.UTF8Encoding]::new($false))
 try {
     Invoke-Checked $Npm @("run", "tauri:build")
 }
 finally {
-    Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY -ErrorAction SilentlyContinue
-    Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD -ErrorAction SilentlyContinue
+    [IO.File]::WriteAllText($ConfigPath, $tauriConfig, [Text.UTF8Encoding]::new($false))
 }
 
 $BundleRoot = Join-Path $ProjectRoot "src-tauri\target\release\bundle"
@@ -123,10 +126,8 @@ if (!$Nsis) { throw "NSIS installer was not created for v$Version." }
 if (!$Msi) { throw "MSI installer was not created for v$Version." }
 
 $SignaturePath = "$($Nsis.FullName).sig"
-if (!(Test-Path -LiteralPath $SignaturePath)) {
-    Write-Step "Signing updater installer"
-    Invoke-Checked $Npm @("exec", "tauri", "signer", "sign", "--", "-f", $KeyPath, "--password=", $Nsis.FullName)
-}
+Write-Step "Signing updater installer"
+Invoke-Checked $Npm @("exec", "tauri", "signer", "sign", "--", "-f", $KeyPath, "--password=", $Nsis.FullName)
 if (!(Test-Path -LiteralPath $SignaturePath)) { throw "Updater signature was not created." }
 
 $ReleaseInstaller = Join-Path $BundleRoot "zzapchoLauncher_${Version}_x64-setup.exe"
