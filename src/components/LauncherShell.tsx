@@ -6,7 +6,7 @@ import type { LauncherProfile, LaunchStatus } from "../types/profile";
 import { PlayButton } from "./PlayButton";
 import { ProfileSelector } from "./ProfileSelector";
 import { VersionBadge } from "./VersionBadge";
-import { WindowControls } from "./WindowControls";
+import { WindowActionButtons, WindowControls } from "./WindowControls";
 import { SectionPanel } from "./SectionPanel";
 import type { LauncherSection } from "../types/navigation";
 import type { LauncherAccount } from "../types/auth";
@@ -56,7 +56,12 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
   }, [activeSection]);
 
   if (loading) return <main className="empty-state"><span className="loader" />프로필을 불러오는 중...</main>;
-  if (!selectedProfile) return <main className="empty-state">사용 가능한 프로필이 없어요.</main>;
+  if (!selectedProfile) return <main className="empty-state empty-profile-state">
+    <div className="window-titlebar empty-state-titlebar" data-tauri-drag-region>
+      <WindowActionButtons maximize={false} />
+    </div>
+    사용 가능한 프로필이 없어요.
+  </main>;
 
   const handleLaunch = async () => {
     try {

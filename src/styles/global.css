@@ -306,6 +306,8 @@ img { -webkit-user-drag: none; }
 .hero + .profile-selector, .profile-selector { animation: home-view-in .24s ease-out; }
 
 .empty-state { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 100%; color: rgba(255,255,255,.65); background: #0b100c; font-size: 12px; }
+.empty-profile-state { position: relative; }
+.empty-state-titlebar { position: absolute; inset: 0 0 auto; height: 54px; }
 .login-screen { --control-size: 34px; position: relative; display: grid; width: 100%; height: 100%; place-items: center; padding: 24px; color: #fff; background: #0b1511; text-align: center; }
 .login-screen > p { color: rgba(255,255,255,.55); font-size: 10px; }
 .login-status { display: grid; width: min(290px, 100%); place-items: center; gap: 10px; }
