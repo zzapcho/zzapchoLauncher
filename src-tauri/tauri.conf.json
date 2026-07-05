@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "zzapcho Launcher", "width": 420, "height": 560, "minWidth": 420, "minHeight": 560, "maxWidth": 420, "maxHeight": 560, "resizable": false, "decorations": false, "shadow": true, "center": true }],
+    "windows": [{ "title": "zzapcho Launcher", "width": 420, "height": 560, "minWidth": 420, "minHeight": 560, "resizable": true, "maximizable": true, "decorations": false, "shadow": true, "center": true }],
     "security": { "csp": null }
   },
   "bundle": {

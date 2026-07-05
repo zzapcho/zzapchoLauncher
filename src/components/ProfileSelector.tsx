@@ -27,8 +27,7 @@ export function ProfileSelector({ profiles, selectedProfile, onSelect, disabled 
 
   return (
     <div className="profile-selector" ref={selectorRef}>
-      {open && (
-        <div className="profile-menu" role="listbox" aria-label="프로필 목록">
+        <div className={`profile-menu${open ? " is-open" : ""}`} role="listbox" aria-label="프로필 목록" aria-hidden={!open}>
           <p className="profile-menu-label">프로필 선택</p>
           {profiles.map((profile) => (
             <button
@@ -37,6 +36,7 @@ export function ProfileSelector({ profiles, selectedProfile, onSelect, disabled 
               aria-selected={profile.id === selectedProfile.id}
               className={profile.id === selectedProfile.id ? "selected" : ""}
               key={profile.id}
+              tabIndex={open ? 0 : -1}
               onClick={() => { onSelect(profile.id); setOpen(false); }}
             >
               <span className="profile-dot" style={{ backgroundColor: profile.accentColor }} />
@@ -45,7 +45,6 @@ export function ProfileSelector({ profiles, selectedProfile, onSelect, disabled 
             </button>
           ))}
         </div>
-      )}
       <button className="profile-trigger" type="button" onClick={() => setOpen((value) => !value)} disabled={disabled} aria-expanded={open}>
         <strong>{selectedProfile.name}</strong>
       </button>

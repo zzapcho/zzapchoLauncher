@@ -1,8 +1,43 @@
 import { useEffect, useRef, useState } from "react";
+import { LAUNCHER_NAV_ITEMS, type LauncherSection } from "../types/navigation";
 
-const MENU_ITEMS = ["모드", "리소스팩", "쉐이더", "로그", "설정"];
+interface LauncherMenuProps {
+  activeSection: LauncherSection;
+  onNavigate: (section: LauncherSection) => void;
+}
 
-export function LauncherMenu() {
+function NavIcon({ section }: { section: LauncherSection }) {
+  const paths: Record<LauncherSection, React.ReactNode> = {
+    home: <path d="m3 10 9-7 9 7v10h-6v-6H9v6H3Z" />,
+    mods: <><rect x="5" y="6" width="14" height="14" rx="2" /><path d="M9 3v6m6-6v6M2 11h5m10 0h5" /></>,
+    "resource-packs": <><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 9h8v6H8z" /></>,
+    shaders: <><circle cx="12" cy="12" r="7" /><path d="M12 5a7 7 0 0 1 0 14Z" /></>,
+    logs: <path d="M5 6h14M5 10h11M5 14h8M5 18h5" />,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1" /></>,
+  };
+  return <svg className={`nav-icon nav-icon-${section}`} viewBox="0 0 24 24" aria-hidden="true">{paths[section]}</svg>;
+}
+
+function NavigationList({ activeSection, onNavigate, tabIndex }: LauncherMenuProps & { tabIndex?: number }) {
+  return (
+    <nav aria-label="런처 메뉴">
+      {LAUNCHER_NAV_ITEMS.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className={activeSection === item.id ? "active" : ""}
+          tabIndex={tabIndex}
+          onClick={() => onNavigate(item.id)}
+        >
+          <NavIcon section={item.id} />
+          <span>{item.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+export function LauncherMenu({ activeSection, onNavigate }: LauncherMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -22,26 +57,35 @@ export function LauncherMenu() {
     };
   }, []);
 
+  const navigate = (section: LauncherSection) => {
+    onNavigate(section);
+    setOpen(false);
+  };
+
+  const handleControl = () => {
+    if (activeSection !== "home") navigate("home");
+    else setOpen((value) => !value);
+  };
+
   return (
-    <div className={`launcher-menu${open ? " is-open" : ""}`} ref={menuRef}>
-      <div className="launcher-menu-panel" aria-hidden={!open}>
-        <nav aria-label="런처 메뉴">
-          {MENU_ITEMS.map((item) => (
-            <button key={item} type="button" tabIndex={open ? 0 : -1} onClick={() => setOpen(false)}>
-              {item}
-            </button>
-          ))}
-        </nav>
+    <>
+      <div className={`launcher-menu${open ? " is-open" : ""}${activeSection !== "home" ? " is-back" : ""}`} ref={menuRef}>
+        <div className="launcher-menu-panel" aria-hidden={!open}>
+          <NavigationList activeSection={activeSection} onNavigate={navigate} tabIndex={open ? 0 : -1} />
+        </div>
+        <button
+          type="button"
+          className="floating-control menu-control"
+          aria-label={activeSection !== "home" ? "홈으로 돌아가기" : open ? "메뉴 닫기" : "메뉴 열기"}
+          aria-expanded={activeSection === "home" ? open : undefined}
+          onClick={handleControl}
+        >
+          {activeSection === "home" ? <><span /><span /><span /></> : <b aria-hidden="true">‹</b>}
+        </button>
       </div>
-      <button
-        type="button"
-        className="floating-control menu-control"
-        aria-label={open ? "메뉴 닫기" : "메뉴 열기"}
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span /><span /><span />
-      </button>
-    </div>
+      <aside className="desktop-sidebar">
+        <NavigationList activeSection={activeSection} onNavigate={navigate} />
+      </aside>
+    </>
   );
 }
