@@ -73,28 +73,30 @@ button { font: inherit; }
   box-shadow: 0 5px 14px rgba(0,0,0,.18);
   backdrop-filter: blur(10px);
   cursor: pointer;
-  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
 }
-.floating-control:hover { color: #fff; background: rgba(41,48,42,.76); border-color: rgba(255,255,255,.34); transform: translateY(-1px); }
+.floating-control:hover { color: #fff; background: rgba(41,48,42,.76); border-color: rgba(255,255,255,.34); transform: scale(1.055); }
 .window-action.close:hover { background: rgba(196,43,53,.9); }
 .window-action.minimize span { width: 11px; height: 1px; background: currentColor; }
 .window-action.close span { margin-top: -2px; font-size: 20px; font-weight: 200; line-height: 1; }
 
 .launcher-menu { position: absolute; top: 10px; left: 10px; width: var(--control-size); height: var(--control-size); }
 .menu-control { position: absolute; z-index: 2; inset: 0; }
-.menu-control span { position: absolute; width: 13px; height: 1.5px; border-radius: 2px; background: currentColor; transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .2s ease; }
+.menu-control span { position: absolute; width: 13px; height: 1.5px; border-radius: 2px; background: currentColor; transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .16s ease; }
 .menu-control span:first-child { transform: translateY(-4px); }
 .menu-control span:last-child { transform: translateY(4px); }
 .launcher-menu.is-open .menu-control span:first-child { transform: rotate(45deg); }
 .launcher-menu.is-open .menu-control span:nth-child(2) { opacity: 0; }
 .launcher-menu.is-open .menu-control span:last-child { transform: rotate(-45deg); }
+.launcher-menu.is-open .menu-control { border-color: transparent; background: transparent; box-shadow: none; backdrop-filter: none; }
+.launcher-menu.is-open .menu-control:hover { border-color: transparent; background: transparent; transform: scale(1.055); }
 .launcher-menu-panel {
   position: absolute;
   z-index: 1;
   top: 0;
   left: 0;
   width: 208px;
-  padding: 50px 8px 8px;
+  padding: 40px 8px 8px;
   border: 1px solid rgba(255,255,255,.2);
   border-radius: var(--surface-radius);
   background: rgba(15,20,17,.88);
@@ -105,26 +107,26 @@ button { font: inherit; }
   transform: scale(.92);
   transform-origin: 17px 17px;
   pointer-events: none;
-  transition: clip-path .42s cubic-bezier(.2,.82,.2,1), transform .42s cubic-bezier(.2,.82,.2,1), opacity .18s ease;
+  transition: clip-path .34s cubic-bezier(.2,.82,.2,1), transform .34s cubic-bezier(.2,.82,.2,1), opacity .16s ease;
 }
 .launcher-menu.is-open .launcher-menu-panel { clip-path: circle(175% at 17px 17px); opacity: 1; transform: scale(1); pointer-events: auto; }
 .launcher-menu-panel nav { display: grid; gap: 3px; }
-.launcher-menu-panel nav button { width: 100%; height: 37px; padding: 0 12px; border: 0; border-radius: 11px; color: rgba(255,255,255,.78); background: transparent; cursor: pointer; text-align: left; font-size: 12px; font-weight: 620; }
+.launcher-menu-panel nav button { width: 100%; height: 36px; padding: 0 12px; border: 0; border-radius: 11px; color: rgba(255,255,255,.78); background: transparent; cursor: pointer; text-align: left; font-size: 12px; font-weight: 620; transition: color .14s ease, background .14s ease; }
 .launcher-menu-panel nav button:hover { color: #fff; background: rgba(255,255,255,.1); }
 
 .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; padding: 0 16px 8px; text-align: center; }
 .profile-copy { width: 100%; max-width: 320px; min-height: 80px; }
 .eyebrow { margin: 0 0 8px; color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .profile-copy h2 { display: -webkit-box; margin: 0; overflow: hidden; font-size: 26px; font-weight: 650; line-height: 1.15; letter-spacing: -.04em; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.play-button { position: relative; display: flex; align-items: center; justify-content: center; gap: 9px; width: 140px; height: 62px; margin: 5px 0 12px; border: 1px solid rgba(0,0,0,.28); border-radius: 12px 12px 27px 27px; color: #071009; background: var(--accent); box-shadow: 0 9px 22px color-mix(in srgb, var(--accent) 18%, transparent); cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: .08em; transition: transform .16s ease, filter .16s ease; }
+.play-button { position: relative; display: flex; align-items: center; justify-content: center; gap: 9px; width: 140px; height: 62px; margin: 5px 0 12px; border: 1px solid rgba(0,0,0,.28); border-radius: 0 0 27px 27px; color: #071009; background: var(--accent); box-shadow: 0 9px 22px color-mix(in srgb, var(--accent) 18%, transparent); cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: .08em; transition: transform .15s ease, filter .15s ease; }
 .play-button:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
 .play-button:active:not(:disabled) { filter: brightness(.92); transform: translateY(1px); }
 .play-button:disabled { cursor: wait; opacity: .75; }
 .play-icon { width: 0; height: 0; margin-left: 3px; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-left: 11px solid #071009; }
-.version-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; color: rgba(255,255,255,.78); background: rgba(7,10,8,.48); font-size: 9px; font-weight: 600; backdrop-filter: blur(8px); }
+.version-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; color: rgba(255,255,255,.78); background: rgba(7,10,8,.48); font-size: 9px; font-weight: 600; backdrop-filter: blur(8px); transition: border-color .15s ease, background .15s ease; }
 .version-badge span { color: var(--accent); }
 .profile-selector { position: relative; z-index: 3; width: 184px; margin: 0 auto; }
-.profile-trigger { display: flex; align-items: center; justify-content: center; width: 100%; height: 36px; padding: 0 12px; border: 1px solid rgba(255,255,255,.2); border-bottom: 0; border-radius: var(--surface-radius) var(--surface-radius) 0 0; color: #fff; background: rgba(10,14,11,.78); backdrop-filter: blur(10px); cursor: pointer; text-align: center; }
+.profile-trigger { display: flex; align-items: center; justify-content: center; width: 100%; height: 36px; padding: 0 12px; border: 1px solid rgba(255,255,255,.2); border-bottom: 0; border-radius: var(--surface-radius) var(--surface-radius) 0 0; color: #fff; background: rgba(10,14,11,.78); backdrop-filter: blur(10px); cursor: pointer; text-align: center; transition: background .15s ease, border-color .15s ease; }
 .profile-trigger:hover:not(:disabled) { background: rgba(30,36,31,.96); }
 .profile-trigger:disabled { opacity: .55; cursor: wait; }
 .profile-trigger strong { overflow: hidden; font-size: 11px; font-weight: 650; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
@@ -139,6 +141,10 @@ button { font: inherit; }
 .empty-state { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 100%; color: rgba(255,255,255,.65); background: #0b100c; font-size: 12px; }
 .loader { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.2); border-top-color: #8fe388; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { rotate: 360deg; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
 @media (max-height: 520px) {
   .profile-copy { min-height: 96px; }
   .profile-copy h2 { font-size: 24px; }
