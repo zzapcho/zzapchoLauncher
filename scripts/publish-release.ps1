@@ -87,6 +87,22 @@ if ($ValidateOnly) {
     exit 0
 }
 
+$RollbackPaths = @(
+    (Join-Path $ProjectRoot "package.json"),
+    (Join-Path $ProjectRoot "package-lock.json"),
+    $ConfigPath,
+    $CargoPath,
+    (Join-Path $ProjectRoot "src-tauri\Cargo.lock"),
+    (Join-Path $ProjectRoot "src\components\SectionPanel.tsx")
+)
+$OriginalFiles = @{}
+foreach ($path in $RollbackPaths) {
+    if (Test-Path -LiteralPath $path) { $OriginalFiles[$path] = [IO.File]::ReadAllBytes($path) }
+}
+$VersionCommitted = $false
+
+try {
+
 Write-Step "Updating version to $Version"
 Invoke-Checked $Npm @("version", $Version, "--no-git-tag-version", "--allow-same-version")
 Set-TextVersion $ConfigPath '("version"\s*:\s*")[^"]+("\s*,)' "`${1}$Version`${2}"
@@ -118,15 +134,13 @@ if (Test-Path -LiteralPath $BundleRoot) {
         Where-Object { $_.Name -like "*${Version}*" -or $_.Name -eq "latest.json" } |
         Remove-Item -Force -ErrorAction Stop
 }
-$tauriConfig = [IO.File]::ReadAllText($ConfigPath)
-$buildConfig = $tauriConfig -replace '"createUpdaterArtifacts"\s*:\s*true', '"createUpdaterArtifacts": false'
-if ($buildConfig -eq $tauriConfig) { throw "Could not disable automatic updater signing for the build." }
-[IO.File]::WriteAllText($ConfigPath, $buildConfig, [Text.UTF8Encoding]::new($false))
+$BuildConfigPath = Join-Path $env:TEMP "zzapchoLauncher-release-$([guid]::NewGuid().ToString('N')).json"
+[IO.File]::WriteAllText($BuildConfigPath, '{"bundle":{"createUpdaterArtifacts":false}}', [Text.UTF8Encoding]::new($false))
 try {
-    Invoke-Checked $Npm @("run", "tauri:build")
+    Invoke-Checked $Npm @("run", "tauri:build", "--", "--config", $BuildConfigPath)
 }
 finally {
-    [IO.File]::WriteAllText($ConfigPath, $tauriConfig, [Text.UTF8Encoding]::new($false))
+    Remove-Item -LiteralPath $BuildConfigPath -Force -ErrorAction SilentlyContinue
 }
 
 $Nsis = Get-ChildItem -LiteralPath (Join-Path $BundleRoot "nsis") -Filter "*_${Version}_x64-setup.exe" | Select-Object -First 1
@@ -163,8 +177,15 @@ $Manifest = [ordered]@{
 [IO.File]::WriteAllText($ManifestPath, ($Manifest | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
 
 Write-Step "Committing and pushing release version"
-Invoke-Checked $Git @("add", "--all")
-Invoke-Checked $Git @("commit", "-m", "Release v$Version")
+$PendingChanges = & $Git status --porcelain
+if ($PendingChanges) {
+    Invoke-Checked $Git @("add", "--all")
+    Invoke-Checked $Git @("commit", "-m", "Release v$Version")
+}
+else {
+    Write-Host "No new files to commit. Continuing the existing v$Version release."
+}
+$VersionCommitted = $true
 Invoke-Checked $Git @("push", "origin", $Branch)
 
 Write-Step "Publishing GitHub Release $Tag"
@@ -192,3 +213,13 @@ if ($PublishedManifest.version -ne $Version -or !$PublishedManifest.platforms.'w
 
 Write-Host "`nRelease completed: https://github.com/$Repository/releases/tag/$Tag" -ForegroundColor Green
 Write-Host "Installer: $InstallerUrl" -ForegroundColor Green
+}
+catch {
+    if (!$VersionCommitted) {
+        Write-Host "`nRelease failed before commit. Restoring version files..." -ForegroundColor Yellow
+        foreach ($path in $OriginalFiles.Keys) {
+            [IO.File]::WriteAllBytes($path, $OriginalFiles[$path])
+        }
+    }
+    throw
+}

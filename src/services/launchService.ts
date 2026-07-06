@@ -46,7 +46,7 @@ export async function launchProfile(
         minecraftVersion: profile.minecraftVersion,
         modLoader: profile.modLoader,
         modLoaderVersion: profile.modLoaderVersion,
-        javaVersion: profile.javaVersion,
+        javaVersion: settings.javaVersions[profile.id] ?? profile.javaVersion,
         javaPath: settings.javaPaths[profile.id] || null,
         minMemoryMb: Math.min(profile.launchOptions.minMemoryMb, maxMemoryMb),
         maxMemoryMb,

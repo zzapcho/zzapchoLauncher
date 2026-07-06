@@ -242,8 +242,9 @@ function LogsPanel() {
 }
 
 function JavaSetting({ profile }: { profile: LauncherProfile }) {
-  const { settings, setJavaPath } = useUserSettings();
-  const requiredMajor = profile.javaVersion ?? recommendedJavaMajor(profile.minecraftVersion);
+  const { settings, setJavaPath, setJavaVersion } = useUserSettings();
+  const automaticMajor = profile.javaVersion ?? recommendedJavaMajor(profile.minecraftVersion);
+  const requiredMajor = settings.javaVersions[profile.id] ?? automaticMajor;
   const javaPath = settings.javaPaths[profile.id] ?? "";
   const [runtimes, setRuntimes] = useState<JavaRuntimeInfo[]>([]);
   const [searched, setSearched] = useState(false);
@@ -274,9 +275,14 @@ function JavaSetting({ profile }: { profile: LauncherProfile }) {
 
   return <article className="java-setting">
     <div className="java-setting-heading"><span>Java 경로 · 현재 프로필</span><strong>Java {requiredMajor}</strong></div>
+    <div className="java-version-choice" aria-label="Java 버전 선택">
+      <button className={settings.javaVersions[profile.id] === undefined ? "selected" : ""} type="button" onClick={() => { setJavaVersion(profile.id, null); setRuntimes([]); setSearched(false); }}>자동 · {automaticMajor}</button>
+      {[8, 17, 21, 25, 26].map((major) => <button className={settings.javaVersions[profile.id] === major ? "selected" : ""} type="button" key={major} onClick={() => { setJavaVersion(profile.id, major); setRuntimes([]); setSearched(false); }}>{major}</button>)}
+    </div>
     <div className="java-path-row">
       <input value={javaPath} onChange={(event) => setJavaPath(profile.id, event.target.value)} placeholder={`Java ${requiredMajor} java.exe 경로`} aria-label="Java 실행 파일 경로" />
       <button type="button" disabled={busy !== null} onClick={() => void findInstalled()}>{busy === "search" ? "찾는 중..." : "설치된 Java 찾기"}</button>
+      <button type="button" disabled={busy !== null} onClick={() => void download()}>{busy === "download" ? "다운로드 중..." : `Java ${requiredMajor} 다운로드`}</button>
     </div>
     {searched && compatible.length > 0 && <div className="java-runtime-list">{compatible.map((runtime) => <button className={javaPath === runtime.path ? "selected" : ""} type="button" key={runtime.path} onClick={() => setJavaPath(profile.id, runtime.path)}><strong>Java {runtime.major}</strong><span>{runtime.source} · {runtime.path}</span></button>)}</div>}
     {searched && compatible.length === 0 && <div className="java-missing"><span>이 프로필에 맞는 Java {requiredMajor}을 찾지 못했습니다.</span><button type="button" disabled={busy !== null} onClick={() => void download()}>{busy === "download" ? "다운로드 중..." : `Java ${requiredMajor} 자동 다운로드`}</button></div>}
@@ -294,10 +300,10 @@ function SettingsPanel({ profile, configuration, account, onLogout, appUpdate }:
       <div><span>Microsoft 계정</span><strong>{account.name}</strong></div>
       <button type="button" onClick={() => void onLogout()}>로그아웃</button>
     </article>
-    <article className="version-setting">
+    {(profile.editableFields.minecraftVersion || profile.editableFields.modLoader) && <article className="version-setting">
       <span>게임 버전 및 로더</span>
       <VersionEditor profile={profile} configuration={configuration} />
-    </article>
+    </article>}
     <article className="memory-setting">
       <div><span>게임 메모리</span>{editingMemory ? <input autoFocus type="number" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} onBlur={() => setEditingMemory(false)} onKeyDown={(event) => event.key === "Enter" && setEditingMemory(false)} /> : <button type="button" onClick={() => setEditingMemory(true)}>{settings.memoryGb.toFixed(1)} GB</button>}</div>
       <input className="memory-slider" type="range" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} />
@@ -309,7 +315,7 @@ function SettingsPanel({ profile, configuration, account, onLogout, appUpdate }:
       <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
       <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
     </article>
-    <article><span>정보</span><strong>zzapcho Launcher 0.4.1</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article><span>정보</span><strong>zzapcho Launcher 0.5.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <JavaSetting profile={profile} />
     <footer>made by zzapcho</footer>
   </div>;

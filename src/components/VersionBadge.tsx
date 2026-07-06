@@ -106,8 +106,9 @@ export function VersionBadge({ profile, configuration }: VersionEditorProps) {
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
     document.addEventListener("mousedown", outside);
     document.addEventListener("keydown", escape);
-    return () => { document.removeEventListener("mousedown", outside); document.removeEventListener("keydown", escape); window.clearTimeout(closeTimer.current); };
+    return () => { document.removeEventListener("mousedown", outside); document.removeEventListener("keydown", escape); };
   }, [open]);
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
 
   return <div className={`version-config${open ? " is-open" : ""}${closing ? " is-closing" : ""}${editable ? " is-editable" : ""}`} ref={root}>
     <button className="version-badge" type="button" disabled={!editable} aria-expanded={open} onClick={() => { if (open) close(); else { setClosing(false); setOpen(true); } }}>

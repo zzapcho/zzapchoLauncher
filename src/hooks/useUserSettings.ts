@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { LauncherUserSettings } from "../types/content";
 
 const SETTINGS_KEY = "zzapchoLauncher.userSettings";
-const DEFAULT_SETTINGS: LauncherUserSettings = { memoryGb: 4, javaPaths: {} };
+const DEFAULT_SETTINGS: LauncherUserSettings = { memoryGb: 4, javaPaths: {}, javaVersions: {} };
 
 export function getUserSettings(): LauncherUserSettings {
   try {
@@ -10,6 +10,7 @@ export function getUserSettings(): LauncherUserSettings {
     return {
       memoryGb: typeof parsed?.memoryGb === "number" ? parsed.memoryGb : DEFAULT_SETTINGS.memoryGb,
       javaPaths: parsed?.javaPaths && typeof parsed.javaPaths === "object" ? parsed.javaPaths : {},
+      javaVersions: parsed?.javaVersions && typeof parsed.javaVersions === "object" ? parsed.javaVersions : {},
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -30,5 +31,16 @@ export function useUserSettings() {
     setSettings(next);
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
   };
-  return { settings, setMemoryGb, setJavaPath };
+  const setJavaVersion = (profileId: string, javaVersion: number | null) => {
+    const current = getUserSettings();
+    const javaVersions = { ...current.javaVersions };
+    if (javaVersion === null) delete javaVersions[profileId];
+    else javaVersions[profileId] = javaVersion;
+    const javaPaths = { ...current.javaPaths };
+    delete javaPaths[profileId];
+    const next = { ...current, javaVersions, javaPaths };
+    setSettings(next);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+  };
+  return { settings, setMemoryGb, setJavaPath, setJavaVersion };
 }
