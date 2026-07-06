@@ -177,6 +177,79 @@ fn sync_content(profile_dir: &Path, content: &[ContentToggle]) -> Result<(), Str
     Ok(())
 }
 
+const SHARED_GAME_FILES: &[&str] = &[
+    "options.txt",
+    "optionsof.txt",
+    "optionsshaders.txt",
+    "servers.dat",
+    "servers.dat_old",
+];
+const SHARED_GAME_DIRECTORIES: &[&str] = &["config", "screenshots"];
+
+fn copy_file(source: &Path, destination: &Path) -> Result<(), String> {
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    fs::copy(source, destination).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn sync_file_pair(profile_file: &Path, shared_file: &Path) -> Result<(), String> {
+    match (profile_file.is_file(), shared_file.is_file()) {
+        (true, false) => copy_file(profile_file, shared_file),
+        (false, true) => copy_file(shared_file, profile_file),
+        (false, false) => Ok(()),
+        (true, true) => {
+            let profile_metadata = fs::metadata(profile_file).map_err(|error| error.to_string())?;
+            let shared_metadata = fs::metadata(shared_file).map_err(|error| error.to_string())?;
+            let profile_modified = profile_metadata.modified().ok();
+            let shared_modified = shared_metadata.modified().ok();
+            if shared_modified > profile_modified {
+                copy_file(shared_file, profile_file)
+            } else if profile_modified > shared_modified
+                || profile_metadata.len() != shared_metadata.len()
+            {
+                copy_file(profile_file, shared_file)
+            } else {
+                Ok(())
+            }
+        }
+    }
+}
+
+fn sync_directory_pair(profile_dir: &Path, shared_dir: &Path) -> Result<(), String> {
+    fs::create_dir_all(profile_dir).map_err(|error| error.to_string())?;
+    fs::create_dir_all(shared_dir).map_err(|error| error.to_string())?;
+    let mut names = HashSet::new();
+    for directory in [profile_dir, shared_dir] {
+        for entry in fs::read_dir(directory).map_err(|error| error.to_string())? {
+            names.insert(entry.map_err(|error| error.to_string())?.file_name());
+        }
+    }
+    for name in names {
+        let profile_path = profile_dir.join(&name);
+        let shared_path = shared_dir.join(&name);
+        if profile_path.is_dir() || shared_path.is_dir() {
+            sync_directory_pair(&profile_path, &shared_path)?;
+        } else {
+            sync_file_pair(&profile_path, &shared_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn sync_shared_game_data(profile_dir: &Path, shared_dir: &Path) -> Result<(), String> {
+    fs::create_dir_all(profile_dir).map_err(|error| error.to_string())?;
+    fs::create_dir_all(shared_dir).map_err(|error| error.to_string())?;
+    for name in SHARED_GAME_FILES {
+        sync_file_pair(&profile_dir.join(name), &shared_dir.join(name))?;
+    }
+    for name in SHARED_GAME_DIRECTORIES {
+        sync_directory_pair(&profile_dir.join(name), &shared_dir.join(name))?;
+    }
+    Ok(())
+}
+
 fn read_game_output<R: Read + Send + 'static>(reader: R, app: tauri::AppHandle) {
     thread::spawn(move || {
         for line in BufReader::new(reader).lines().map_while(Result::ok) {
@@ -197,7 +270,13 @@ fn prepare_and_launch(
     let profile_dir = app_data
         .join("profiles")
         .join(super::safe_segment(&request.profile_id));
+    let shared_game_dir = app_data.join("shared-game-data");
     fs::create_dir_all(&profile_dir).map_err(|error| error.to_string())?;
+    if let Err(error) = sync_shared_game_data(&profile_dir, &shared_game_dir) {
+        emit_launcher(&app, format!("공용 게임 설정 동기화 실패: {error}"));
+    } else {
+        emit_launcher(&app, "공용 게임 설정 동기화 완료");
+    }
     emit_progress(&app, "모드 확인 중", 12);
     sync_content(&profile_dir, &request.content)?;
 
@@ -353,6 +432,9 @@ fn prepare_and_launch(
     }
     thread::spawn(move || {
         let status = child.wait();
+        if let Err(error) = sync_shared_game_data(&profile_dir, &shared_game_dir) {
+            emit_launcher(&app, format!("게임 종료 후 공용 설정 동기화 실패: {error}"));
+        }
         GAME_RUNNING.store(false, Ordering::SeqCst);
         GAME_PROCESS_ID.store(0, Ordering::SeqCst);
         let forced = FORCE_STOP_REQUESTED.swap(false, Ordering::SeqCst);
@@ -364,6 +446,41 @@ fn prepare_and_launch(
         );
     });
     Ok(LaunchStarted { process_id })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sync_shared_game_data;
+    use std::fs;
+
+    #[test]
+    fn synchronizes_shared_settings_in_both_directions() {
+        let root = std::env::temp_dir().join(format!(
+            "zzapcho-launcher-shared-test-{}",
+            std::process::id()
+        ));
+        let profile = root.join("profile");
+        let shared = root.join("shared");
+        fs::create_dir_all(profile.join("config")).unwrap();
+        fs::write(
+            profile.join("options.txt"),
+            "key_key.jump:key.keyboard.space",
+        )
+        .unwrap();
+        fs::write(profile.join("config").join("example.toml"), "enabled=true").unwrap();
+
+        sync_shared_game_data(&profile, &shared).unwrap();
+        assert!(shared.join("options.txt").is_file());
+        assert!(shared.join("config").join("example.toml").is_file());
+
+        fs::write(shared.join("servers.dat"), "server-list").unwrap();
+        sync_shared_game_data(&profile, &shared).unwrap();
+        assert_eq!(
+            fs::read(profile.join("servers.dat")).unwrap(),
+            b"server-list"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
 }
 
 #[tauri::command]
