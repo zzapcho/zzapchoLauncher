@@ -525,7 +525,9 @@ pub fn run() {
             download_content_file,
             java_runtime::ensure_java_runtime,
             java_runtime::discover_java_runtimes,
-            minecraft::launch_minecraft
+            minecraft::launch_minecraft,
+            minecraft::minecraft_running,
+            minecraft::force_stop_minecraft
         ])
         .run(tauri::generate_context!())
         .expect("error while running zzapcho Launcher");

@@ -4,7 +4,7 @@ use std::{
     io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, Ordering},
     thread,
 };
 
@@ -24,6 +24,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 
 static GAME_RUNNING: AtomicBool = AtomicBool::new(false);
+static GAME_PROCESS_ID: AtomicU32 = AtomicU32::new(0);
+static FORCE_STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,6 +68,18 @@ pub struct LaunchStarted {
 
 fn emit_launcher(app: &tauri::AppHandle, message: impl Into<String>) {
     let _ = app.emit_to("main", "launcher-log", message.into());
+}
+
+fn emit_progress(app: &tauri::AppHandle, message: impl Into<String>, progress: u8) {
+    let _ = app.emit_to(
+        "main",
+        "launch-progress",
+        serde_json::json!({
+            "status": "preparing",
+            "message": message.into(),
+            "progress": progress
+        }),
+    );
 }
 
 fn loader_spec(loader: &str, version: &str) -> Result<Option<LoaderSpec>, String> {
@@ -184,11 +198,13 @@ fn prepare_and_launch(
         .join("profiles")
         .join(super::safe_segment(&request.profile_id));
     fs::create_dir_all(&profile_dir).map_err(|error| error.to_string())?;
+    emit_progress(&app, "모드 확인 중", 12);
     sync_content(&profile_dir, &request.content)?;
 
     let java_major = request
         .java_version
         .unwrap_or_else(|| super::java_runtime::recommended_major(&request.minecraft_version));
+    emit_progress(&app, format!("Java {java_major} 확인 중"), 16);
     let java = if let Some(path) = request.java_path.filter(|path| !path.trim().is_empty()) {
         let path = PathBuf::from(path);
         if !path.is_file() {
@@ -225,12 +241,48 @@ fn prepare_and_launch(
         java: JavaInstallPolicy::Auto,
     };
     let progress_app = app.clone();
+    let mut reported_progress = 20u8;
+    let mut stage_progress = 20u8;
     let mut progress = move |event: ProgressEvent| match event {
         ProgressEvent::StageStarted { stage } => {
-            emit_launcher(&progress_app, format!("설치 단계: {stage:?}"))
+            let (message, percent) = match stage {
+                mc_launcher_core::progress::InstallStage::ResolveVersion => {
+                    ("게임 정보 확인 중", 22)
+                }
+                mc_launcher_core::progress::InstallStage::DownloadLibraries => {
+                    ("라이브러리 다운로드 중", 34)
+                }
+                mc_launcher_core::progress::InstallStage::DownloadAssets => {
+                    ("게임 파일 다운로드 중", 58)
+                }
+                mc_launcher_core::progress::InstallStage::InstallRuntime => {
+                    ("Java 다운로드 중", 72)
+                }
+                mc_launcher_core::progress::InstallStage::ExtractNatives => {
+                    ("게임 파일 설치 중", 84)
+                }
+                mc_launcher_core::progress::InstallStage::LoaderInstall => {
+                    ("모드 로더 설치 중", 90)
+                }
+                mc_launcher_core::progress::InstallStage::Verify => ("파일 검증 중", 96),
+            };
+            stage_progress = percent;
+            reported_progress = reported_progress.max(percent);
+            emit_progress(&progress_app, message, reported_progress);
+            emit_launcher(&progress_app, format!("설치 단계: {stage:?}"));
         }
         ProgressEvent::TaskStarted { label, .. } => {
-            emit_launcher(&progress_app, format!("다운로드: {label}"))
+            emit_launcher(&progress_app, format!("다운로드: {label}"));
+        }
+        ProgressEvent::BytesReceived {
+            received,
+            total: Some(total),
+            ..
+        } if total > 0 => {
+            let task_progress = ((received.saturating_mul(8) / total).min(8)) as u8;
+            let next = stage_progress.saturating_add(task_progress).min(95);
+            reported_progress = reported_progress.max(next);
+            emit_progress(&progress_app, "게임 파일 다운로드 중", reported_progress);
         }
         _ => {}
     };
@@ -241,6 +293,7 @@ fn prepare_and_launch(
         .load_version(&installed.version_id)
         .map_err(|error| error.to_string())?;
     install_fallback_maven_libraries(&app, &minecraft_dir, &version)?;
+    emit_progress(&app, "게임 실행 준비 중", 98);
 
     let account = if request.account.kind == "microsoft" {
         Account::Microsoft {
@@ -290,6 +343,8 @@ fn prepare_and_launch(
     }
     let mut child = process.spawn().map_err(|error| error.to_string())?;
     let process_id = child.id();
+    GAME_PROCESS_ID.store(process_id, Ordering::SeqCst);
+    FORCE_STOP_REQUESTED.store(false, Ordering::SeqCst);
     if let Some(stdout) = child.stdout.take() {
         read_game_output(stdout, app.clone());
     }
@@ -299,10 +354,55 @@ fn prepare_and_launch(
     thread::spawn(move || {
         let status = child.wait();
         GAME_RUNNING.store(false, Ordering::SeqCst);
+        GAME_PROCESS_ID.store(0, Ordering::SeqCst);
+        let forced = FORCE_STOP_REQUESTED.swap(false, Ordering::SeqCst);
         let code = status.ok().and_then(|value| value.code());
-        let _ = app.emit_to("main", "game-exited", serde_json::json!({ "code": code }));
+        let _ = app.emit_to(
+            "main",
+            "game-exited",
+            serde_json::json!({ "code": code, "forced": forced }),
+        );
     });
     Ok(LaunchStarted { process_id })
+}
+
+#[tauri::command]
+pub fn minecraft_running() -> bool {
+    GAME_RUNNING.load(Ordering::SeqCst)
+}
+
+#[tauri::command]
+pub fn force_stop_minecraft() -> Result<(), String> {
+    let process_id = GAME_PROCESS_ID.load(Ordering::SeqCst);
+    if !GAME_RUNNING.load(Ordering::SeqCst) || process_id == 0 {
+        return Err("실행 중인 Minecraft가 없습니다.".into());
+    }
+    FORCE_STOP_REQUESTED.store(true, Ordering::SeqCst);
+
+    #[cfg(windows)]
+    let status = {
+        use std::os::windows::process::CommandExt;
+        Command::new("taskkill.exe")
+            .args(["/PID", &process_id.to_string(), "/T", "/F"])
+            .creation_flags(0x08000000)
+            .status()
+    };
+    #[cfg(not(windows))]
+    let status = Command::new("kill")
+        .args(["-9", &process_id.to_string()])
+        .status();
+
+    match status {
+        Ok(result) if result.success() => Ok(()),
+        Ok(result) => {
+            FORCE_STOP_REQUESTED.store(false, Ordering::SeqCst);
+            Err(format!("Minecraft 종료 명령이 실패했습니다: {result}"))
+        }
+        Err(error) => {
+            FORCE_STOP_REQUESTED.store(false, Ordering::SeqCst);
+            Err(error.to_string())
+        }
+    }
 }
 
 #[tauri::command]

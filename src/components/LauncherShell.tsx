@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useAccentColor } from "../hooks/useAccentColor";
-import { launchProfile } from "../services/launchService";
-import type { LauncherProfile, LaunchStatus } from "../types/profile";
+import { forceStopMinecraft, isMinecraftRunning, launchProfile, type LaunchProgress } from "../services/launchService";
+import type { LauncherProfile } from "../types/profile";
 import { PlayButton } from "./PlayButton";
 import { ProfileSelector } from "./ProfileSelector";
 import { VersionBadge } from "./VersionBadge";
@@ -25,11 +25,13 @@ interface LauncherShellProps {
 
 export function LauncherShell({ profiles, selectedProfile, selectProfile, refreshProfiles, loading, account, onLogout, appUpdate }: LauncherShellProps) {
   const accent = useAccentColor(selectedProfile);
-  const [status, setStatus] = useState<LaunchStatus>("idle");
+  const [launchProgress, setLaunchProgress] = useState<LaunchProgress>({ status: "idle", message: "플레이", progress: 100 });
+  const [toast, setToast] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<LauncherSection>("home");
   const [switchingProfile, setSwitchingProfile] = useState(false);
   const [wideLayout, setWideLayout] = useState(() => window.innerWidth >= 780);
   const transitionTimers = useRef<number[]>([]);
+  const status = launchProgress.status;
   const busy = !["idle", "error"].includes(status);
 
   useEffect(() => () => transitionTimers.current.forEach(window.clearTimeout), []);
@@ -44,7 +46,15 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
   }, []);
   useEffect(() => {
     if (!("__TAURI_INTERNALS__" in window)) return;
-    const unlisten = listen("game-exited", () => setStatus("idle"));
+    void isMinecraftRunning().then((running) => {
+      if (running) setLaunchProgress({ status: "running", message: "Minecraft 실행 중", progress: 100 });
+    }).catch(() => undefined);
+    const unlisten = listen<{ code: number | null; forced?: boolean }>("game-exited", (event) => {
+      setLaunchProgress({ status: "idle", message: "플레이", progress: 100 });
+      if (!event.payload.forced && event.payload.code !== 0) {
+        setToast(`Minecraft가 비정상 종료되었습니다${event.payload.code === null ? "." : ` (코드 ${event.payload.code}).`}`);
+      }
+    });
     return () => { void unlisten.then((dispose) => dispose()); };
   }, []);
   useEffect(() => {
@@ -65,17 +75,28 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
 
   const handleLaunch = async () => {
     try {
+      setLaunchProgress({ status: "checking-profile", message: "프로필 확인 중", progress: 3 });
       const latestProfiles = await refreshProfiles(true);
       const latestProfile = latestProfiles.find((profile) => profile.id === selectedProfile.id) ?? latestProfiles[0];
       if (!latestProfile) throw new Error("사용 가능한 프로필이 없습니다.");
-      const result = await launchProfile(latestProfile, account, (progress) => {
-        setStatus(progress.status);
-      });
-      setStatus("running");
+      const result = await launchProfile(latestProfile, account, setLaunchProgress);
+      setLaunchProgress({ status: "running", message: "Minecraft 실행 중", progress: 100 });
       console.info(result.message);
     } catch (error) {
       console.error(error);
-      setStatus("error");
+      const message = error instanceof Error ? error.message : "게임 실행에 실패했습니다.";
+      setLaunchProgress({ status: "error", message: "다시 시도", progress: 100 });
+      setToast(message);
+    }
+  };
+
+  const handleStop = async () => {
+    try {
+      setLaunchProgress({ status: "preparing", message: "게임 종료 중", progress: 100 });
+      await forceStopMinecraft();
+    } catch (error) {
+      setLaunchProgress({ status: "running", message: "Minecraft 실행 중", progress: 100 });
+      setToast(error instanceof Error ? error.message : "게임을 종료하지 못했습니다.");
     }
   };
 
@@ -91,7 +112,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
     transitionTimers.current.forEach(window.clearTimeout);
     setSwitchingProfile(true);
     transitionTimers.current = [
-      window.setTimeout(() => { selectProfile(id); setStatus("idle"); }, 140),
+      window.setTimeout(() => { selectProfile(id); if (status !== "running") setLaunchProgress({ status: "idle", message: "플레이", progress: 100 }); }, 140),
       window.setTimeout(() => setSwitchingProfile(false), 300),
     ];
   };
@@ -105,11 +126,12 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
         <div className="profile-copy">
           <h2>{selectedProfile.customText}</h2>
         </div>
-        <PlayButton busy={busy} onClick={handleLaunch} />
+        <PlayButton status={status} message={launchProgress.message} progress={launchProgress.progress} onLaunch={handleLaunch} onStop={handleStop} />
         <VersionBadge profile={selectedProfile} />
       </section> : <SectionPanel profile={selectedProfile} section={activeSection} account={account} onLogout={onLogout} appUpdate={appUpdate} />}
 
       {activeSection === "home" && <ProfileSelector profiles={profiles} selectedProfile={selectedProfile} onSelect={changeProfile} disabled={busy} />}
+      {toast && <button className="launcher-toast" type="button" onClick={() => { setToast(null); navigate("logs"); }}><strong>실행 알림</strong><span>{toast}</span><small>클릭해서 로그 보기</small></button>}
     </main>
   );
 }
