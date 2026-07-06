@@ -39,7 +39,9 @@ pub fn recommended_major(minecraft_version: &str) -> u32 {
     let major = *parts.first().unwrap_or(&1);
     let minor = *parts.get(1).unwrap_or(&0);
     let patch = *parts.get(2).unwrap_or(&0);
-    if major > 1 || minor > 20 || (minor == 20 && patch >= 5) {
+    if major >= 26 {
+        25
+    } else if minor > 20 || (minor == 20 && patch >= 5) {
         21
     } else if minor >= 17 {
         17
@@ -200,7 +202,7 @@ fn discover_java(app_data: &Path, required_major: u32) -> Vec<JavaRuntimeInfo> {
 }
 
 pub fn ensure_java(app: &tauri::AppHandle, app_data: &Path, major: u32) -> Result<PathBuf, String> {
-    if !matches!(major, 8 | 17 | 21 | 25) {
+    if !matches!(major, 8 | 17 | 21 | 25 | 26) {
         return Err(format!("지원하지 않는 Java 버전입니다: {major}"));
     }
     let runtime_dir = app_data.join("runtime").join(format!("temurin-{major}"));
@@ -300,5 +302,7 @@ mod tests {
         assert_eq!(recommended_major("1.20.1"), 17);
         assert_eq!(recommended_major("1.20.5"), 21);
         assert_eq!(recommended_major("1.21.1"), 21);
+        assert_eq!(recommended_major("26.1"), 25);
+        assert_eq!(recommended_major("26.1.1"), 25);
     }
 }

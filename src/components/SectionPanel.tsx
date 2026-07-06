@@ -12,9 +12,12 @@ import type { LauncherSection } from "../types/navigation";
 import type { LauncherAccount } from "../types/auth";
 import type { AppUpdateState } from "../hooks/useAppUpdate";
 import { discoverJavaRuntimes, downloadJavaRuntime, recommendedJavaMajor, type JavaRuntimeInfo } from "../services/javaService";
+import type { ProfileConfiguration } from "../hooks/useProfileConfiguration";
+import { VersionEditor } from "./VersionBadge";
 
 interface SectionPanelProps {
   profile: LauncherProfile;
+  configuration: ProfileConfiguration;
   section: Exclude<LauncherSection, "home">;
   account: LauncherAccount;
   onLogout: () => Promise<void>;
@@ -282,7 +285,7 @@ function JavaSetting({ profile }: { profile: LauncherProfile }) {
   </article>;
 }
 
-function SettingsPanel({ profile, account, onLogout, appUpdate }: { profile: LauncherProfile; account: LauncherAccount; onLogout: () => Promise<void>; appUpdate: AppUpdateState }) {
+function SettingsPanel({ profile, configuration, account, onLogout, appUpdate }: { profile: LauncherProfile; configuration: ProfileConfiguration; account: LauncherAccount; onLogout: () => Promise<void>; appUpdate: AppUpdateState }) {
   const { settings, setMemoryGb } = useUserSettings();
   const [editingMemory, setEditingMemory] = useState(false);
   return <div className="settings-grid">
@@ -290,6 +293,10 @@ function SettingsPanel({ profile, account, onLogout, appUpdate }: { profile: Lau
       <div className="skin-head" style={account.skinUrl ? { backgroundImage: `url("${account.skinUrl}")` } : undefined}>{!account.skinUrl && account.name.slice(0, 1).toUpperCase()}</div>
       <div><span>Microsoft 계정</span><strong>{account.name}</strong></div>
       <button type="button" onClick={() => void onLogout()}>로그아웃</button>
+    </article>
+    <article className="version-setting">
+      <span>게임 버전 및 로더</span>
+      <VersionEditor profile={profile} configuration={configuration} />
     </article>
     <article className="memory-setting">
       <div><span>게임 메모리</span>{editingMemory ? <input autoFocus type="number" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} onBlur={() => setEditingMemory(false)} onKeyDown={(event) => event.key === "Enter" && setEditingMemory(false)} /> : <button type="button" onClick={() => setEditingMemory(true)}>{settings.memoryGb.toFixed(1)} GB</button>}</div>
@@ -302,13 +309,13 @@ function SettingsPanel({ profile, account, onLogout, appUpdate }: { profile: Lau
       <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
       <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
     </article>
-    <article><span>정보</span><strong>zzapcho Launcher 0.4.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article><span>정보</span><strong>zzapcho Launcher 0.4.1</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <JavaSetting profile={profile} />
     <footer>made by zzapcho</footer>
   </div>;
 }
 
-export function SectionPanel({ profile, section, account, onLogout, appUpdate }: SectionPanelProps) {
+export function SectionPanel({ profile, configuration, section, account, onLogout, appUpdate }: SectionPanelProps) {
   const copy = sectionCopy[section];
   const contentKind: ContentKind | null = section === "mods" ? "mods" : section === "resource-packs" ? "resourcePacks" : section === "shaders" ? "shaders" : null;
   return (
@@ -316,7 +323,7 @@ export function SectionPanel({ profile, section, account, onLogout, appUpdate }:
       <header><h2>{copy.title}</h2></header>
       {contentKind && <ContentManager key={`${profile.id}-${contentKind}`} profile={profile} kind={contentKind} />}
       {section === "logs" && <LogsPanel />}
-      {section === "settings" && <SettingsPanel profile={profile} account={account} onLogout={onLogout} appUpdate={appUpdate} />}
+      {section === "settings" && <SettingsPanel profile={profile} configuration={configuration} account={account} onLogout={onLogout} appUpdate={appUpdate} />}
     </section>
   );
 }

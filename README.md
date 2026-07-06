@@ -48,7 +48,7 @@ BAT는 GitHub 동기화, 버전 변경, 의존성 및 빌드 검사, 백업, MSI
 
 설정 화면에서 프로필별 Java 실행 파일 경로를 직접 입력할 수 있습니다. `설치된 Java 찾기`를 누르면 시스템의 Java를 검색하고, 프로필에 필요한 Java 버전만 선택 목록에 표시합니다. 호환 버전이 없으면 Eclipse Temurin을 자동으로 다운로드하고 선택할 수 있습니다.
 
-Java 요구 버전은 프로필의 `javaVersion`을 우선 사용하며, 값이 없으면 Minecraft 버전에 맞춰 Java 8/17/21을 결정합니다.
+Java 요구 버전은 프로필의 `javaVersion`을 우선 사용하며 Java 8/17/21/25/26을 지원합니다. 값이 없으면 Minecraft 버전에 맞춰 자동 결정하며 Minecraft 26.x는 공식 요구 버전인 Java 25를 사용합니다.
 
 ## 백업
 

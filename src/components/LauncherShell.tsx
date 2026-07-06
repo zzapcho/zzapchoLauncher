@@ -11,6 +11,7 @@ import { SectionPanel } from "./SectionPanel";
 import type { LauncherSection } from "../types/navigation";
 import type { LauncherAccount } from "../types/auth";
 import type { AppUpdateState } from "../hooks/useAppUpdate";
+import { applyProfileConfiguration, useProfileConfiguration } from "../hooks/useProfileConfiguration";
 
 interface LauncherShellProps {
   profiles: LauncherProfile[];
@@ -24,9 +25,12 @@ interface LauncherShellProps {
 }
 
 export function LauncherShell({ profiles, selectedProfile, selectProfile, refreshProfiles, loading, account, onLogout, appUpdate }: LauncherShellProps) {
-  const accent = useAccentColor(selectedProfile);
+  const configuration = useProfileConfiguration(selectedProfile);
+  const profile = configuration.profile;
+  const accent = useAccentColor(profile);
   const [launchProgress, setLaunchProgress] = useState<LaunchProgress>({ status: "idle", message: "플레이", progress: 100 });
   const [toast, setToast] = useState<string | null>(null);
+  const [toastClosing, setToastClosing] = useState(false);
   const [activeSection, setActiveSection] = useState<LauncherSection>("home");
   const [switchingProfile, setSwitchingProfile] = useState(false);
   const [wideLayout, setWideLayout] = useState(() => window.innerWidth >= 780);
@@ -35,6 +39,16 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
   const busy = !["idle", "error"].includes(status);
 
   useEffect(() => () => transitionTimers.current.forEach(window.clearTimeout), []);
+  useEffect(() => {
+    if (!toast) return;
+    setToastClosing(false);
+    const closeTimer = window.setTimeout(() => setToastClosing(true), 2_600);
+    const removeTimer = window.setTimeout(() => setToast(null), 2_800);
+    return () => {
+      window.clearTimeout(closeTimer);
+      window.clearTimeout(removeTimer);
+    };
+  }, [toast]);
   useEffect(() => {
     let frame = 0;
     const updateLayout = () => {
@@ -64,9 +78,15 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
     document.addEventListener("keydown", returnHome);
     return () => document.removeEventListener("keydown", returnHome);
   }, [activeSection]);
+  useEffect(() => {
+    if (profile?.modLoader !== "vanilla" || !["mods", "shaders"].includes(activeSection)) return;
+    setActiveSection("home");
+    const label = activeSection === "mods" ? "모드" : "쉐이더";
+    setToast(`바닐라 입니다\n${label}를 선택할 수 없습니다`);
+  }, [profile?.modLoader, activeSection]);
 
   if (loading) return <main className="empty-state"><span className="loader" />프로필을 불러오는 중...</main>;
-  if (!selectedProfile) return <main className="empty-state empty-profile-state">
+  if (!profile) return <main className="empty-state empty-profile-state">
     <div className="window-titlebar empty-state-titlebar" data-tauri-drag-region>
       <WindowActionButtons maximize={false} />
     </div>
@@ -77,9 +97,9 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
     try {
       setLaunchProgress({ status: "checking-profile", message: "프로필 확인 중", progress: 3 });
       const latestProfiles = await refreshProfiles(true);
-      const latestProfile = latestProfiles.find((profile) => profile.id === selectedProfile.id) ?? latestProfiles[0];
-      if (!latestProfile) throw new Error("사용 가능한 프로필이 없습니다.");
-      const result = await launchProfile(latestProfile, account, setLaunchProgress);
+      const latestBase = latestProfiles.find((item) => item.id === profile.id) ?? latestProfiles[0];
+      if (!latestBase) throw new Error("사용 가능한 프로필이 없습니다.");
+      const result = await launchProfile(applyProfileConfiguration(latestBase), account, setLaunchProgress);
       setLaunchProgress({ status: "running", message: "Minecraft 실행 중", progress: 100 });
       console.info(result.message);
     } catch (error) {
@@ -100,15 +120,19 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
     }
   };
 
-  const background = `url("${selectedProfile.backgroundImage}")`;
+  const background = `url("${profile.backgroundImage}")`;
 
   const navigate = (section: LauncherSection) => {
+    if (profile.modLoader === "vanilla" && (section === "mods" || section === "shaders")) {
+      setToast(`바닐라 입니다\n${section === "mods" ? "모드" : "쉐이더"}를 선택할 수 없습니다`);
+      return;
+    }
     void refreshProfiles();
     setActiveSection(section);
   };
 
   const changeProfile = (id: string) => {
-    if (id === selectedProfile.id) return;
+    if (id === profile.id) return;
     transitionTimers.current.forEach(window.clearTimeout);
     setSwitchingProfile(true);
     transitionTimers.current = [
@@ -122,16 +146,19 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
       <div className="edge-distortion" aria-hidden="true" />
       <WindowControls activeSection={activeSection} onNavigate={navigate} updateAvailable={appUpdate.available} />
 
-      {activeSection === "home" ? <section className="hero" aria-label={`${selectedProfile.name} 실행`}>
+      {activeSection === "home" ? <section className="hero" aria-label={`${profile.name} 실행`}>
         <div className="profile-copy">
-          <h2>{selectedProfile.customText}</h2>
+          <h2>{profile.customText}</h2>
         </div>
         <PlayButton status={status} message={launchProgress.message} progress={launchProgress.progress} onLaunch={handleLaunch} onStop={handleStop} />
-        <VersionBadge profile={selectedProfile} />
-      </section> : <SectionPanel profile={selectedProfile} section={activeSection} account={account} onLogout={onLogout} appUpdate={appUpdate} />}
+        <VersionBadge profile={profile} configuration={configuration} />
+      </section> : <SectionPanel profile={profile} configuration={configuration} section={activeSection} account={account} onLogout={onLogout} appUpdate={appUpdate} />}
 
-      {activeSection === "home" && <ProfileSelector profiles={profiles} selectedProfile={selectedProfile} onSelect={changeProfile} disabled={busy} />}
-      {toast && <button className="launcher-toast" type="button" onClick={() => { setToast(null); navigate("logs"); }}><strong>실행 알림</strong><span>{toast}</span><small>클릭해서 로그 보기</small></button>}
+      {activeSection === "home" && <ProfileSelector profiles={profiles} selectedProfile={profile} onSelect={changeProfile} disabled={busy} />}
+      {toast && <div className={`launcher-toast${toastClosing ? " is-closing" : ""}`} role="alert">
+        <button className="toast-message" type="button" title={toast} onClick={() => { setToast(null); navigate("logs"); }}>{toast}</button>
+        <button className="toast-close" type="button" aria-label="알림 닫기" onClick={() => { setToastClosing(true); window.setTimeout(() => setToast(null), 180); }}>×</button>
+      </div>}
     </main>
   );
 }

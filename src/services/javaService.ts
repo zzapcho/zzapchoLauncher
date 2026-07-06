@@ -8,7 +8,8 @@ export interface JavaRuntimeInfo {
 }
 
 export function recommendedJavaMajor(minecraftVersion: string): number {
-  const [, minor = 0, patch = 0] = minecraftVersion.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const [major = 1, minor = 0, patch = 0] = minecraftVersion.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  if (major >= 26) return 25;
   if (minor > 20 || (minor === 20 && patch >= 5)) return 21;
   return minor >= 17 ? 17 : 8;
 }

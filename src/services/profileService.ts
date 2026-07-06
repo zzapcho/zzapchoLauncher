@@ -5,7 +5,7 @@ const CONSOLE_MANIFEST_URL = "http://console.zzapcho.kr:3379/api/launcher/profil
 const MANIFEST_BASE = "https://raw.githubusercontent.com";
 const MANIFEST_PATH = "/zzapcho/zzapchoLauncher/codex/rounded-launcher-menu/src/data/profiles.json";
 export const PROFILE_MANIFEST_URL = `${MANIFEST_BASE}${MANIFEST_PATH}`;
-const PROFILE_CACHE_KEY = "zzapchoLauncher.profileCache";
+const PROFILE_CACHE_KEY = "zzapchoLauncher.profileCache.v2";
 
 interface ConsoleManifestResponse {
   profiles?: unknown;
@@ -20,8 +20,6 @@ function isProfile(value: unknown): value is LauncherProfile {
 function normalizeProfile(profile: LauncherProfile): LauncherProfile {
   return {
     ...profile,
-    javaVersion: profile.javaVersion ?? 21,
-    defaultServer: profile.defaultServer ?? { name: "zzapcho Server", address: "mc.zzapcho.kr", port: 25565 },
     editableFields: { server: false, ...profile.editableFields },
   };
 }

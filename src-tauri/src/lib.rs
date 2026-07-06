@@ -8,6 +8,7 @@ use tauri::Manager;
 
 mod java_runtime;
 mod minecraft;
+mod version_catalog;
 
 const MICROSOFT_CLIENT_ID: &str = "00000000402b5328";
 const MICROSOFT_SCOPE: &str = "XboxLive.signin offline_access";
@@ -527,7 +528,9 @@ pub fn run() {
             java_runtime::discover_java_runtimes,
             minecraft::launch_minecraft,
             minecraft::minecraft_running,
-            minecraft::force_stop_minecraft
+            minecraft::force_stop_minecraft,
+            version_catalog::minecraft_versions,
+            version_catalog::loader_versions
         ])
         .run(tauri::generate_context!())
         .expect("error while running zzapcho Launcher");
