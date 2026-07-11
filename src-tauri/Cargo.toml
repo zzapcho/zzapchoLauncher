@@ -1,6 +1,6 @@
 [package]
 name = "zzapcho-launcher"
-version = "0.5.2"
+version = "0.5.3"
 description = "A compact custom Minecraft launcher"
 authors = ["zzapcho"]
 edition = "2021"

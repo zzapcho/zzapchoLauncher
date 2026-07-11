@@ -150,35 +150,43 @@ img { -webkit-user-drag: none; }
 .play-button:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
 .play-button:active:not(:disabled) { filter: brightness(.92); transform: translateY(1px); }
 .play-button:disabled { cursor: wait; }
-.version-config { position: relative; z-index: 5; width: 190px; height: 29px; overflow: hidden; border: 1px solid transparent; border-radius: 13px; background: transparent; transition: width .3s cubic-bezier(.2,.8,.2,1), height .3s cubic-bezier(.2,.8,.2,1), border-color .2s ease, background .2s ease, box-shadow .2s ease; }
-.version-config.is-open { width: min(370px, calc(100vw - 34px)); height: 242px; border-color: rgba(255,255,255,.18); background: rgba(8,12,9,.9); box-shadow: 0 16px 38px rgba(0,0,0,.25); backdrop-filter: blur(14px); }
+.version-config { position: relative; z-index: 5; width: 232px; height: 36px; overflow: hidden; border: 1px solid transparent; border-radius: 16px; background: transparent; transition: width .3s cubic-bezier(.2,.8,.2,1), height .3s cubic-bezier(.2,.8,.2,1), border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.version-config.is-open { width: min(580px, calc(100vw - 34px)); height: min(430px, calc(100vh - 134px)); border-color: rgba(255,255,255,.18); background: rgba(8,12,9,.93); box-shadow: 0 16px 38px rgba(0,0,0,.25); backdrop-filter: blur(14px); }
 .version-config.is-closing { pointer-events: none; }
-.version-badge { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 28px; padding: 0 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; color: rgba(255,255,255,.78); background: rgba(7,10,8,.48); cursor: default; font-size: 9px; font-weight: 600; backdrop-filter: blur(8px); transition: border-color .2s ease, background .2s ease, border-radius .2s ease; }
+.version-badge { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 35px; padding: 0 14px; border: 1px solid rgba(255,255,255,.2); border-radius: 15px; color: rgba(255,255,255,.86); background: rgba(7,10,8,.5); cursor: default; font-size: 11px; font-weight: 700; backdrop-filter: blur(8px); transition: border-color .2s ease, background .2s ease, border-radius .2s ease; }
 .version-config.is-editable .version-badge { cursor: pointer; }
 .version-config.is-editable .version-badge:hover { border-color: color-mix(in srgb, var(--accent) 45%, rgba(255,255,255,.2)); }
-.version-config.is-open .version-badge { border-color: transparent; border-radius: 12px 12px 8px 8px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.version-config.is-open .version-badge { border-color: transparent; border-radius: 15px 15px 10px 10px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .version-badge:disabled { opacity: 1; }
 .version-badge span { color: var(--accent); }
-.version-config-panel { padding: 4px 9px 9px; opacity: 1; animation: version-config-in .24s ease-out; }
+.version-config-panel { --version-editor-height: 371px; height: calc(100% - 35px); padding: 12px; opacity: 1; animation: version-config-in .24s ease-out; }
 .version-config.is-closing .version-config-panel { opacity: 0; transform: translateY(-3px); transition: opacity .14s ease, transform .16s ease; }
-.version-editor { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 9px; text-align: left; }
-.version-editor > section { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-.version-editor > section.is-locked { opacity: .5; }
-.version-editor label, .version-editor section > span { color: rgba(255,255,255,.48); font-size: 8px; font-weight: 650; }
-.version-editor input { width: 100%; height: 28px; padding: 0 9px; border: 1px solid rgba(255,255,255,.13); border-radius: 9px; color: #fff; outline: 0; background: rgba(255,255,255,.055); font-size: 9px; }
+.version-editor { display: grid; height: var(--version-editor-height, 100%); min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; text-align: left; }
+.version-editor-card { display: flex; min-width: 0; min-height: 0; flex-direction: column; gap: 10px; padding: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.09); border-radius: 15px; background: rgba(255,255,255,.035); }
+.version-editor-card.is-locked { opacity: .5; }
+.version-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.version-card-heading span, .version-field span { color: rgba(255,255,255,.5); font-size: 11px; font-weight: 750; }
+.version-card-heading strong { overflow: hidden; color: var(--accent); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.version-field { display: grid; gap: 6px; }
+.version-editor input { width: 100%; height: 36px; padding: 0 12px; border: 1px solid rgba(255,255,255,.13); border-radius: 11px; color: #fff; outline: 0; background: rgba(255,255,255,.06); font-size: 12px; }
 .version-editor input:focus { border-color: color-mix(in srgb, var(--accent) 52%, transparent); }
 .version-editor input:disabled { cursor: not-allowed; }
-.version-choice-list { display: grid; max-height: 116px; grid-template-columns: minmax(0,1fr); align-content: flex-start; gap: 4px; overflow-y: auto; scrollbar-width: none; }
+.version-choice-list { display: grid; min-height: 0; padding-right: 1px; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); align-content: flex-start; gap: 6px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.version-editor-card > .version-choice-list { flex: 1 1 auto; }
 .version-choice-list::-webkit-scrollbar { display: none; }
-.version-choice-list button, .loader-choice-list button { width: 100%; min-height: 26px; padding: 0 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: rgba(255,255,255,.68); background: rgba(255,255,255,.04); cursor: pointer; font-size: 8px; text-align: left; transition: color .14s ease, border-color .14s ease, background .14s ease, transform .14s ease; }
-.version-choice-list button:hover:not(:disabled), .loader-choice-list button:hover:not(:disabled) { color: #fff; background: rgba(255,255,255,.09); transform: scale(1.025); }
+.version-choice-list button, .loader-choice-list button { width: 100%; min-height: 34px; padding: 0 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; color: rgba(255,255,255,.74); background: rgba(255,255,255,.045); cursor: pointer; font-size: 11px; font-weight: 650; text-align: left; transition: color .14s ease, border-color .14s ease, background .14s ease, transform .14s ease; }
+.version-choice-list button:hover:not(:disabled), .loader-choice-list button:hover:not(:disabled) { color: #fff; background: rgba(255,255,255,.09); transform: scale(1.015); }
 .version-choice-list button.selected, .loader-choice-list button.selected { border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .version-choice-list button:disabled, .loader-choice-list button:disabled { cursor: not-allowed; }
-.version-choice-list small { padding: 5px 2px; color: rgba(255,255,255,.38); font-size: 8px; }
-.loader-choice-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-.loader-versions { max-height: 51px; }
-.version-setting { gap: 10px !important; }
-.version-setting .version-editor { margin-top: 2px; }
+.version-choice-list small { grid-column: 1 / -1; padding: 10px 2px; color: rgba(255,255,255,.42); font-size: 11px; }
+.loader-choice-list { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.loader-choice-list button { display: grid; min-height: 48px; align-content: center; gap: 2px; }
+.loader-choice-list button strong { font-size: 12px; }
+.loader-choice-list button small { color: rgba(255,255,255,.42); font-size: 9px; }
+.loader-versions { flex: 1; max-height: none; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); }
+.vanilla-loader-note { margin: auto 0 0; padding: 12px; border-radius: 12px; color: rgba(255,255,255,.5); background: rgba(255,255,255,.045); font-size: 11px; line-height: 1.45; }
+.version-setting { --version-editor-height: 371px; gap: 12px !important; }
+.version-setting .version-editor { margin-top: 0; }
 @keyframes version-config-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
 .profile-selector { position: relative; z-index: 3; width: 184px; height: 36px; margin: 0 auto; transition: width .28s cubic-bezier(.2,.8,.2,1); }
 .profile-selector.is-open, .profile-selector.is-closing { width: 216px; }
@@ -456,19 +464,282 @@ img { -webkit-user-drag: none; }
 .loader { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.2); border-top-color: #8fe388; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { rotate: 360deg; } }
 
+/* Readability pass: 작은 장식 UI 느낌을 줄이고 실제로 읽히는 크기로 정리 */
+.launcher-shell { --control-size: 36px; --surface-radius: 18px; grid-template-rows: 52px minmax(0, 1fr) auto; }
+.floating-control { font-size: 13px; }
+.launcher-menu-panel { width: 224px; padding: 44px 10px 10px; }
+.launcher-menu-panel nav button,
+.desktop-sidebar nav button { height: 42px; gap: 12px; padding: 0 13px; border-radius: 12px; font-size: 13px; }
+.nav-icon { width: 16px; height: 16px; }
+.desktop-sidebar { width: 202px; padding: 62px 11px 14px; }
+.launcher-shell.is-wide { padding-left: 202px; }
+.hero { padding: 0 22px 10px; }
+.profile-copy { max-width: 380px; min-height: 78px; }
+.profile-copy h2 { font-size: 30px; line-height: 1.18; }
+.play-button { min-width: var(--play-width, 154px); height: 68px; padding: 0 20px; border-radius: 30px; font-size: 13px; }
+.profile-selector { width: 214px; height: 40px; }
+.profile-selector.is-open,
+.profile-selector.is-closing { width: 252px; }
+.profile-trigger { height: 40px; padding: 0 14px; }
+.profile-trigger strong,
+.profile-menu button strong { font-size: 13px; }
+.profile-menu { clip-path: inset(calc(100% - 40px) 18px 0 round var(--surface-radius) var(--surface-radius) 0 0); }
+.profile-menu.is-closing { clip-path: inset(calc(100% - 40px) 18px 0 round var(--surface-radius) var(--surface-radius) 0 0); }
+.profile-menu-label { font-size: 10px; }
+.profile-options button { min-height: 46px; }
+.toast-message { font-size: 11px; }
+.section-panel { width: min(100% - 36px, 640px); max-height: calc(100vh - 112px); padding: 24px; }
+.section-panel header { margin-bottom: 22px; }
+.section-panel header p { font-size: 10px; }
+.section-panel header h2 { font-size: 27px; line-height: 1.12; }
+.section-panel header span { font-size: 12px; line-height: 1.45; }
+.content-list { gap: 9px; }
+.content-row { min-height: 58px; gap: 12px; padding: 10px 12px; border-radius: 14px; }
+.content-icon,
+.modrinth-results img,
+.project-placeholder { width: 36px; height: 36px; border-radius: 10px; }
+.content-row strong,
+.content-name strong,
+.modrinth-heading strong,
+.modrinth-results strong,
+.settings-grid article > strong,
+.settings-grid strong,
+.account-setting > div:nth-child(2) strong { font-size: 13px; }
+.content-row small,
+.content-name small,
+.content-state,
+.locked-note,
+.drop-zone,
+.content-toolbar input,
+.content-toolbar form button,
+.section-action,
+.modrinth-results article button,
+.inline-loading,
+.locked-panel,
+.settings-grid article > span,
+.settings-grid span,
+.memory-setting > div span,
+.java-setting-heading span,
+.java-path-row input,
+.java-path-row button,
+.java-missing button,
+.account-setting > button,
+.settings-button { font-size: 11px; }
+.content-name small,
+.modrinth-results small,
+.settings-grid article > small,
+.settings-grid small,
+.modrinth-heading span,
+.load-more-sentinel,
+.managed-badge,
+.java-version-choice button,
+.java-runtime-list button span,
+.java-missing span { font-size: 10px; }
+.section-empty { font-size: 12px; }
+.content-toolbar form,
+.section-action { height: 40px; border-radius: 13px; }
+.modrinth-results article { min-height: 56px; gap: 11px; padding: 9px 10px; border-radius: 14px; }
+.modrinth-results article button { height: 32px; padding: 0 11px; border-radius: 10px; }
+.log-segmented { height: 40px; border-radius: 20px; }
+.log-segmented button { font-size: 12px; }
+.log-view { padding: 14px; border-radius: 14px; font-size: 11px; line-height: 1.68; }
+.settings-grid { width: min(100%, 640px); gap: 10px; }
+.settings-grid article { gap: 8px; padding: 15px; border-radius: 15px; }
+.settings-grid footer { font-size: 10px; }
+.memory-setting > div button,
+.memory-setting > div input { width: 86px; height: 32px; font-size: 12px; }
+.java-setting-heading strong,
+.java-runtime-list button strong { font-size: 12px; }
+.java-version-choice button { min-width: 48px; height: 32px; border-radius: 10px; }
+.java-version-choice button:first-child { min-width: 82px; }
+.java-path-row input,
+.java-path-row button,
+.java-missing button { height: 36px; border-radius: 11px; }
+.java-runtime-list button { min-height: 40px; border-radius: 12px; }
+.login-screen > p,
+.login-status > p,
+.login-card > p,
+.update-status p,
+.update-status small { font-size: 12px; }
+.login-card h1 { font-size: 26px; }
+.microsoft-login,
+.preview-login { height: 46px; font-size: 12px; }
+.login-config,
+.device-code small,
+.device-code span { font-size: 10px; }
+.device-code strong { font-size: 22px; }
+.launcher-shell.is-wide .content-manager { width: min(100%, 860px); }
+
+/* Fine readability bump: 메인 문구는 유지하고 작은 보조 텍스트만 살짝 확대 */
+.version-badge,
+.version-card-heading span,
+.version-field span,
+.version-choice-list button,
+.version-choice-list small,
+.loader-choice-list button,
+.vanilla-loader-note,
+.toast-message,
+.section-panel header span,
+.content-row small,
+.content-state,
+.section-empty,
+.locked-note,
+.drop-zone,
+.section-action,
+.content-toolbar input,
+.content-toolbar form button,
+.modrinth-results article button,
+.inline-loading,
+.locked-panel,
+.log-segmented button,
+.settings-grid article > span,
+.settings-grid span,
+.memory-setting > div span,
+.java-setting-heading span,
+.java-path-row input,
+.java-path-row button,
+.java-missing button,
+.account-setting > button,
+.settings-button,
+.login-screen > p,
+.login-status > p,
+.login-card > p,
+.microsoft-login,
+.preview-login,
+.update-status p,
+.update-status small,
+.context-menu button { font-size: 12px; }
+
+.loader-choice-list button small,
+.profile-menu-label,
+.content-name small,
+.modrinth-results small,
+.settings-grid article > small,
+.settings-grid small,
+.modrinth-heading span,
+.load-more-sentinel,
+.managed-badge,
+.java-version-choice button,
+.java-runtime-list button span,
+.java-missing span,
+.login-config,
+.device-code small,
+.device-code span,
+.context-menu kbd { font-size: 11px; }
+
+.content-row strong,
+.content-name strong,
+.modrinth-heading strong,
+.modrinth-results strong,
+.settings-grid article > strong,
+.settings-grid strong,
+.account-setting > div:nth-child(2) strong,
+.java-setting-heading strong,
+.java-runtime-list button strong { font-size: 14px; }
+
+.profile-trigger strong,
+.profile-menu button strong { font-size: 13px; }
+.section-panel header p { font-size: 11px; }
+.log-view { font-size: 12px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
-.launcher-shell.is-wide { padding-left: 190px; }
+@media (max-width: 520px) {
+  .version-config.is-open { height: min(520px, calc(100vh - 126px)); }
+  .version-editor { grid-template-columns: minmax(0, 1fr); }
+  .version-choice-list { max-height: 140px; }
+}
+
+.launcher-shell.is-wide { padding-left: 202px; }
 .launcher-shell.is-wide .launcher-menu { opacity: 0; visibility: hidden; pointer-events: none; transition-delay: 0s, .16s; }
 .launcher-shell.is-wide .desktop-sidebar { opacity: 1; transform: translateX(0); visibility: visible; pointer-events: auto; transition-delay: 0s; }
 .desktop-sidebar nav { display: grid; gap: 4px; }
-.desktop-sidebar nav button { display: flex; align-items: center; gap: 11px; width: 100%; height: 39px; padding: 0 12px; border: 0; border-radius: 10px; color: rgba(255,255,255,.6); background: transparent; cursor: pointer; text-align: left; font-size: 12px; transition: color .14s ease, background .14s ease; }
+.desktop-sidebar nav button { display: flex; align-items: center; gap: 12px; width: 100%; height: 42px; padding: 0 13px; border: 0; border-radius: 12px; color: rgba(255,255,255,.6); background: transparent; cursor: pointer; text-align: left; font-size: 13px; transition: color .14s ease, background .14s ease; }
 .desktop-sidebar nav button:hover { color: #fff; background: rgba(255,255,255,.07); }
 .desktop-sidebar nav button.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); font-weight: 700; }
 .launcher-shell.is-wide .section-panel { width: 100%; padding: 4px 28px 24px; }
-.launcher-shell.is-wide .content-manager { width: min(100%, 760px); margin: 0 auto; }
+.launcher-shell.is-wide .content-manager { width: min(100%, 860px); margin: 0 auto; }
+
+/* Final text sizing pass: 실제 렌더 기준에서 작은 글자가 다시 덮이지 않게 마지막에 고정 */
+.launcher-menu-panel nav button,
+.desktop-sidebar nav button,
+.version-badge,
+.version-choice-list button,
+.loader-choice-list button,
+.play-button,
+.profile-trigger strong,
+.profile-menu button strong,
+.content-row strong,
+.content-name strong,
+.modrinth-heading strong,
+.modrinth-results strong,
+.settings-grid article > strong,
+.settings-grid strong,
+.account-setting > div:nth-child(2) strong,
+.java-setting-heading strong,
+.java-runtime-list button strong,
+.section-action,
+.content-toolbar input,
+.content-toolbar form button,
+.modrinth-results article button,
+.log-segmented button,
+.java-path-row input,
+.java-path-row button,
+.java-missing button,
+.memory-setting > div button,
+.memory-setting > div input,
+.context-menu button,
+.microsoft-login,
+.preview-login { font-size: 13px !important; }
+
+.version-card-heading span,
+.version-field span,
+.version-choice-list small,
+.loader-choice-list button small,
+.vanilla-loader-note,
+.toast-message,
+.section-panel header p,
+.section-panel header span,
+.content-row small,
+.content-name small,
+.content-state,
+.section-empty,
+.locked-note,
+.drop-zone,
+.inline-loading,
+.locked-panel,
+.settings-grid article > span,
+.settings-grid article > small,
+.settings-grid span,
+.settings-grid small,
+.settings-grid footer,
+.account-setting > div:nth-child(2) span,
+.account-setting > button,
+.settings-button,
+.modrinth-heading span,
+.modrinth-results small,
+.load-more-sentinel,
+.managed-badge,
+.java-version-choice button,
+.java-runtime-list button span,
+.java-missing span,
+.memory-setting > div span,
+.java-setting-heading span,
+.login-screen > p,
+.login-status > p,
+.login-card > p,
+.login-config,
+.update-status p,
+.update-status small,
+.device-code small,
+.device-code span,
+.context-menu kbd { font-size: 12px !important; }
+
+.log-view { font-size: 12px !important; }
+.profile-menu-label { font-size: 11px !important; }
+
 @media (max-height: 520px) {
   .profile-copy { min-height: 96px; }
   .profile-copy h2 { font-size: 24px; }

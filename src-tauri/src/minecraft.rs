@@ -286,18 +286,39 @@ fn prepare_and_launch(
     emit_progress(&app, format!("Java {java_major} 확인 중"), 16);
     let java = if let Some(path) = request.java_path.filter(|path| !path.trim().is_empty()) {
         let path = PathBuf::from(path);
-        if !path.is_file() {
-            return Err("선택한 Java 실행 파일을 찾을 수 없습니다.".into());
+        let use_selected = if !path.is_file() {
+            emit_launcher(
+                &app,
+                "선택한 Java를 찾지 못해서 자동 설치 Java로 전환합니다.",
+            );
+            false
+        } else if let Some(detected) = super::java_runtime::java_major(&path) {
+            if detected == java_major {
+                true
+            } else {
+                emit_launcher(
+                    &app,
+                    format!(
+                        "선택한 Java는 {detected}이고 필요한 버전은 {java_major}이라 자동 설치 Java로 전환합니다."
+                    ),
+                );
+                false
+            }
+        } else {
+            emit_launcher(
+                &app,
+                "선택한 Java 버전을 확인하지 못해서 자동 설치 Java로 전환합니다.",
+            );
+            false
+        };
+        if use_selected {
+            path
+        } else {
+            emit_progress(&app, format!("Java {java_major} 자동 설치 중"), 18);
+            super::java_runtime::ensure_java(&app, &app_data, java_major)?
         }
-        let detected = super::java_runtime::java_major(&path)
-            .ok_or("선택한 파일의 Java 버전을 확인할 수 없습니다.")?;
-        if detected != java_major {
-            return Err(format!(
-                "이 프로필에는 Java {java_major}이 필요하지만 선택한 Java는 {detected}입니다."
-            ));
-        }
-        path
     } else {
+        emit_progress(&app, format!("Java {java_major} 자동 설치 중"), 18);
         super::java_runtime::ensure_java(&app, &app_data, java_major)?
     };
     if let Some(java_bin) = java.parent() {
