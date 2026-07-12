@@ -17,6 +17,7 @@ export interface ModrinthProject {
 interface ModrinthVersion {
   id: string;
   version_number: string;
+  game_versions: string[];
   files: Array<{ url: string; filename: string; primary: boolean }>;
 }
 
@@ -25,6 +26,7 @@ export interface ModrinthVersionOption {
   version: string;
   url: string;
   fileName: string;
+  gameVersions: string[];
 }
 
 const projectType: Record<ContentKind, ModrinthProject["project_type"]> = {
@@ -39,7 +41,8 @@ export interface ModrinthSearchResult {
 }
 
 export async function searchModrinth(kind: ContentKind, profile: LauncherProfile, query = "", offset = 0, limit = 6): Promise<ModrinthSearchResult> {
-  const facets = [[`project_type:${projectType[kind]}`], [`versions:${profile.minecraftVersion}`]];
+  const facets = [[`project_type:${projectType[kind]}`]];
+  if (kind === "mods") facets.push([`versions:${profile.minecraftVersion}`]);
   if (kind === "mods" && profile.modLoader !== "vanilla") facets.push([`categories:${profile.modLoader}`]);
   const params = new URLSearchParams({ query, index: query ? "relevance" : "downloads", limit: String(limit), offset: String(offset), facets: JSON.stringify(facets) });
   const response = await fetch(`${MODRINTH_API}/search?${params}`);
@@ -49,14 +52,15 @@ export async function searchModrinth(kind: ContentKind, profile: LauncherProfile
 }
 
 export async function getInstallableVersions(projectId: string, kind: ContentKind, profile: LauncherProfile): Promise<ModrinthVersionOption[]> {
-  const params = new URLSearchParams({ game_versions: JSON.stringify([profile.minecraftVersion]), include_changelog: "false" });
+  const params = new URLSearchParams({ include_changelog: "false" });
+  if (kind === "mods") params.set("game_versions", JSON.stringify([profile.minecraftVersion]));
   if (kind === "mods" && profile.modLoader !== "vanilla") params.set("loaders", JSON.stringify([profile.modLoader]));
   const response = await fetch(`${MODRINTH_API}/project/${projectId}/version?${params}`);
   if (!response.ok) throw new Error(`Modrinth versions failed: ${response.status}`);
   const versions = await response.json() as ModrinthVersion[];
   return versions.flatMap((version) => {
     const file = version.files.find((item) => item.primary) ?? version.files[0];
-    return file ? [{ id: version.id, version: version.version_number, url: file.url, fileName: file.filename }] : [];
+    return file ? [{ id: version.id, version: version.version_number, url: file.url, fileName: file.filename, gameVersions: version.game_versions ?? [] }] : [];
   });
 }
 

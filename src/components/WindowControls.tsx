@@ -1,12 +1,14 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LauncherMenu } from "./LauncherMenu";
 import type { LauncherSection } from "../types/navigation";
+import type { LauncherProfile } from "../types/profile";
 
 const isTauri = () => "__TAURI_INTERNALS__" in window;
 
 interface WindowControlsProps {
   activeSection: LauncherSection;
   onNavigate: (section: LauncherSection) => void;
+  profile?: LauncherProfile;
   updateAvailable?: boolean;
 }
 
@@ -22,9 +24,9 @@ export function WindowActionButtons({ maximize = true, close = true }: { maximiz
   </div>;
 }
 
-export function WindowControls({ activeSection, onNavigate, updateAvailable }: WindowControlsProps) {
+export function WindowControls({ activeSection, onNavigate, profile, updateAvailable }: WindowControlsProps) {
   return <div className="window-titlebar" data-tauri-drag-region>
-    <LauncherMenu activeSection={activeSection} onNavigate={onNavigate} updateAvailable={updateAvailable} />
+    <LauncherMenu activeSection={activeSection} onNavigate={onNavigate} profile={profile} updateAvailable={updateAvailable} />
     <WindowActionButtons />
   </div>;
 }

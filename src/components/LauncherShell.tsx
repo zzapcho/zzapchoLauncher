@@ -81,8 +81,6 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
   useEffect(() => {
     if (profile?.modLoader !== "vanilla" || !["mods", "shaders"].includes(activeSection)) return;
     setActiveSection("home");
-    const label = activeSection === "mods" ? "모드" : "쉐이더";
-    setToast(`바닐라 입니다\n${label}를 선택할 수 없습니다`);
   }, [profile?.modLoader, activeSection]);
 
   if (loading) return <main className="empty-state"><span className="loader" />프로필을 불러오는 중...</main>;
@@ -144,7 +142,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
   return (
     <main className={`launcher-shell${switchingProfile ? " is-profile-switching" : ""}${wideLayout ? " is-wide" : ""}`} style={{ "--accent": accent, "--background": background } as React.CSSProperties}>
       <div className="edge-distortion" aria-hidden="true" />
-      <WindowControls activeSection={activeSection} onNavigate={navigate} updateAvailable={appUpdate.available} />
+      <WindowControls activeSection={activeSection} onNavigate={navigate} profile={profile} updateAvailable={appUpdate.available} />
 
       {activeSection === "home" ? <section className="hero" aria-label={`${profile.name} 실행`}>
         <div className="profile-copy">

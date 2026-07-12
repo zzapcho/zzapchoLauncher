@@ -8,6 +8,7 @@ export interface ManagedContentEntry extends ContentEntry {
   fileName?: string;
   projectId?: string;
   iconUrl?: string;
+  gameVersions?: string[];
 }
 
 export type ProfileContentState = Record<ContentKind, ManagedContentEntry[]>;

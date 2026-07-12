@@ -5,6 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#111912" />
     <title>zzapcho Launcher</title>
+    <style>
+      html,
+      body,
+      #root {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        background: #0b1511;
+        color: #fff;
+        overflow: hidden;
+      }
+
+      body {
+        color-scheme: dark;
+      }
+
+      #root:empty {
+        background:
+          radial-gradient(circle at 50% 42%, rgba(143, 227, 136, .08), transparent 34%),
+          #0b1511;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

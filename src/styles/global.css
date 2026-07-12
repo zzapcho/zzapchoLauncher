@@ -380,7 +380,6 @@ img { -webkit-user-drag: none; }
 .login-config { color: rgba(255,255,255,.35); font-size: 8px; line-height: 1.5; }
 .login-error { color: #ff8d95 !important; }
 .preview-login { display: none !important; }
-.login-screen:has(.login-status) .window-action.close,
 .update-screen .window-action.close { display: none; }
 
 .launcher-menu.has-update .menu-control {
@@ -740,8 +739,842 @@ img { -webkit-user-drag: none; }
 .log-view { font-size: 12px !important; }
 .profile-menu-label { font-size: 11px !important; }
 
+/* Compact correction: 과하게 커진 UI를 원래 밀도에 가깝게 복구 */
+.launcher-shell { --control-size: 34px; --surface-radius: 17px; grid-template-rows: 48px minmax(0, 1fr) auto; }
+.floating-control { font-size: 12px; }
+.launcher-menu-panel { width: 208px; padding: 40px 8px 8px; }
+.desktop-sidebar { width: 190px; padding: 58px 10px 12px; }
+.launcher-shell.is-wide { padding-left: 190px; }
+.launcher-menu-panel nav button,
+.desktop-sidebar nav button { height: 39px; gap: 11px; padding: 0 12px; border-radius: 10px; font-size: 12px !important; }
+.nav-icon { width: 15px; height: 15px; }
+.hero { padding: 0 16px 8px; }
+.profile-copy { max-width: 320px; min-height: 67px; }
+.profile-copy h2 { font-size: 26px; line-height: 1.15; }
+.play-button { min-width: var(--play-width, 140px); height: 62px; padding: 0 16px; border-radius: 27px; font-size: 12px !important; }
+.profile-selector { width: 190px; height: 38px; }
+.profile-selector.is-open,
+.profile-selector.is-closing { width: 222px; }
+.profile-trigger { height: 38px; padding: 0 12px; }
+.profile-trigger strong,
+.profile-menu button strong { font-size: 12px !important; }
+.profile-options button { min-height: 42px; }
+.section-panel { width: min(100% - 32px, 560px); max-height: calc(100vh - 106px); padding: 20px; }
+.section-panel header { margin-bottom: 18px; }
+.section-panel header h2 { font-size: 23px; line-height: 1.14; }
+.section-panel header p,
+.section-panel header span,
+.content-row small,
+.content-name small,
+.content-state,
+.section-empty,
+.locked-note,
+.drop-zone,
+.inline-loading,
+.locked-panel,
+.settings-grid article > span,
+.settings-grid article > small,
+.settings-grid span,
+.settings-grid small,
+.settings-grid footer,
+.account-setting > div:nth-child(2) span,
+.account-setting > button,
+.settings-button,
+.modrinth-heading span,
+.modrinth-results small,
+.load-more-sentinel,
+.managed-badge,
+.java-version-choice button,
+.java-runtime-list button span,
+.java-missing span,
+.memory-setting > div span,
+.java-setting-heading span,
+.login-screen > p,
+.login-status > p,
+.login-card > p,
+.login-config,
+.update-status p,
+.update-status small,
+.device-code small,
+.device-code span,
+.context-menu kbd { font-size: 10px !important; }
+.version-badge,
+.version-choice-list button,
+.loader-choice-list button,
+.content-row strong,
+.content-name strong,
+.modrinth-heading strong,
+.modrinth-results strong,
+.settings-grid article > strong,
+.settings-grid strong,
+.account-setting > div:nth-child(2) strong,
+.java-setting-heading strong,
+.java-runtime-list button strong,
+.section-action,
+.content-toolbar input,
+.content-toolbar form button,
+.modrinth-results article button,
+.log-segmented button,
+.java-path-row input,
+.java-path-row button,
+.java-missing button,
+.memory-setting > div button,
+.memory-setting > div input,
+.context-menu button,
+.microsoft-login,
+.preview-login { font-size: 11px !important; }
+.version-card-heading span,
+.version-field span,
+.version-choice-list small,
+.loader-choice-list button small,
+.vanilla-loader-note,
+.toast-message { font-size: 10px !important; }
+.log-view { font-size: 10px !important; }
+.content-row { min-height: 50px; gap: 10px; padding: 8px 10px; border-radius: 12px; }
+.content-icon,
+.modrinth-results img,
+.project-placeholder { width: 32px; height: 32px; border-radius: 9px; }
+.content-warning { display: block; margin-top: 3px; color: #ffd66d !important; }
+.content-toolbar form,
+.section-action { height: 37px; border-radius: 12px; }
+.modrinth-results article { min-height: 49px; gap: 9px; padding: 7px 8px; border-radius: 12px; }
+.modrinth-results article button { height: 28px; padding: 0 9px; border-radius: 9px; }
+.log-segmented { height: 36px; border-radius: 18px; }
+.log-view { padding: 12px; border-radius: 13px; line-height: 1.65; }
+.settings-grid { width: min(100%, 580px); gap: 8px; }
+.settings-grid article { gap: 6px; padding: 13px; border-radius: 13px; }
+.memory-setting > div button,
+.memory-setting > div input { width: 78px; height: 29px; }
+.java-version-choice button { min-width: 44px; height: 29px; border-radius: 9px; }
+.java-version-choice button:first-child { min-width: 76px; }
+.java-path-row input,
+.java-path-row button,
+.java-missing button { height: 32px; border-radius: 10px; }
+.java-runtime-list button { min-height: 36px; border-radius: 10px; }
+.version-config { width: 220px; height: 34px; border-radius: 15px; }
+.version-config.is-open { width: min(500px, calc(100vw - 34px)); height: min(353px, calc(100vh - 140px)); }
+.version-badge { height: 33px; padding: 0 12px; border-radius: 14px; }
+.version-config-panel { --version-editor-height: 294px; height: calc(100% - 33px); padding: 12px; }
+.version-setting { --version-editor-height: 294px; }
+.version-editor { gap: 10px; }
+.version-editor-card { gap: 8px; padding: 10px; border-radius: 13px; }
+.version-editor input { height: 32px; padding: 0 10px; font-size: 11px; }
+.version-choice-list { gap: 5px; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); }
+.version-choice-list button { min-height: 30px; padding: 0 8px; border-radius: 8px; }
+.loader-choice-list { gap: 5px; }
+.loader-choice-list button { min-height: 42px; }
+.loader-versions { grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); }
+.launcher-shell.is-wide .content-manager { width: min(100%, 780px); }
+
+@media (max-width: 520px) {
+  .version-config.is-open { height: min(456px, calc(100vh - 126px)); }
+  .version-editor { grid-template-columns: minmax(0, 1fr); }
+  .version-choice-list { max-height: 126px; }
+}
+
 @media (max-height: 520px) {
   .profile-copy { min-height: 96px; }
   .profile-copy h2 { font-size: 24px; }
   .play-button { height: 66px; }
+}
+
+/* Responsive layout stabilization */
+html, body, #root {
+  min-width: 0;
+  min-height: 0;
+  background: #0b100c;
+}
+
+.launcher-shell {
+  width: 100vw;
+  height: 100dvh;
+  min-height: 0;
+  contain: layout paint;
+  background: var(--accent-background);
+  transform: translateZ(0);
+  transition: padding-left .26s cubic-bezier(.2,.8,.2,1), background-color .28s ease;
+}
+
+.launcher-shell::after {
+  inset: -22px;
+  transform: scale(1.04);
+  transition: opacity .18s ease;
+  will-change: opacity;
+}
+
+.launcher-shell::before {
+  transition: background-color .22s ease;
+}
+
+.edge-distortion {
+  inset: -1px;
+  padding: 9px;
+}
+
+.section-panel {
+  display: flex;
+  width: min(100% - 32px, 580px);
+  max-height: calc(100dvh - 106px);
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  transition:
+    width .24s cubic-bezier(.2,.8,.2,1),
+    max-height .24s cubic-bezier(.2,.8,.2,1),
+    padding .24s cubic-bezier(.2,.8,.2,1),
+    border-color .2s ease,
+    background .2s ease;
+}
+
+.section-panel > header {
+  flex: none;
+  max-height: 56px;
+  opacity: 1;
+  overflow: hidden;
+  transform: translateY(0);
+  transition: max-height .22s cubic-bezier(.2,.8,.2,1), margin .22s ease, opacity .18s ease, transform .22s cubic-bezier(.2,.8,.2,1);
+}
+
+.content-manager,
+.logs-panel,
+.settings-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.content-manager {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: grid-template-columns .26s cubic-bezier(.2,.8,.2,1), gap .22s ease;
+}
+
+.content-list,
+.modrinth-section,
+.settings-grid,
+.logs-panel {
+  min-width: 0;
+}
+
+.content-list {
+  align-content: start;
+}
+
+.modrinth-section {
+  align-self: start;
+}
+
+.settings-grid {
+  align-content: start;
+}
+
+.launcher-shell.is-wide .section-panel {
+  width: 100%;
+  max-width: none;
+  max-height: calc(100dvh - 72px);
+  align-self: stretch;
+  justify-self: stretch;
+  margin: 0;
+  padding: 0 28px 24px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.launcher-shell.is-wide .section-panel > header {
+  max-height: 0;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(-16px);
+  pointer-events: none;
+}
+
+.launcher-shell:not(.is-wide) .section-panel > header {
+  animation: section-title-down .22s cubic-bezier(.2,.8,.2,1);
+}
+
+@keyframes section-title-down {
+  from { opacity: 0; transform: translateY(-14px); }
+}
+
+.launcher-shell.is-wide .content-manager {
+  width: min(100%, 1040px);
+  margin: 0 auto;
+  grid-template-columns: minmax(260px, .95fr) minmax(320px, 1.05fr);
+  grid-template-areas:
+    "list drop"
+    "list toolbar"
+    "list modrinth";
+  align-content: start;
+  column-gap: 16px;
+}
+
+.launcher-shell.is-wide .content-list {
+  grid-area: list;
+}
+
+.launcher-shell.is-wide .drop-zone {
+  grid-area: drop;
+}
+
+.launcher-shell.is-wide .content-toolbar {
+  grid-area: toolbar;
+}
+
+.launcher-shell.is-wide .modrinth-section {
+  grid-area: modrinth;
+}
+
+.launcher-shell.is-wide .locked-panel {
+  grid-column: 1 / -1;
+}
+
+.launcher-shell.is-wide .settings-grid {
+  width: min(100%, 920px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.launcher-shell.is-wide .account-setting,
+.launcher-shell.is-wide .update-setting,
+.launcher-shell.is-wide .version-setting,
+.launcher-shell.is-wide .java-setting,
+.launcher-shell.is-wide .info-setting,
+.launcher-shell.is-wide .settings-grid footer {
+  grid-column: 1 / -1;
+}
+
+.launcher-shell.is-wide .settings-grid article {
+  animation: wide-card-in .22s cubic-bezier(.2,.8,.2,1);
+}
+
+.launcher-shell.is-wide .content-list,
+.launcher-shell.is-wide .drop-zone,
+.launcher-shell.is-wide .content-toolbar,
+.launcher-shell.is-wide .modrinth-section {
+  animation: wide-card-in .22s cubic-bezier(.2,.8,.2,1);
+}
+
+@keyframes wide-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+@media (max-width: 779px) {
+  .content-manager {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .section-panel {
+    align-self: center;
+    justify-self: center;
+  }
+}
+
+/* Final spacing and drag/drop behavior */
+.desktop-sidebar {
+  display: flex;
+  flex-direction: column;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.desktop-sidebar nav {
+  margin: auto 0;
+}
+
+.section-panel {
+  width: min(100% - 24px, 560px);
+  padding: 16px;
+}
+
+.section-panel > header {
+  margin-bottom: 14px;
+}
+
+.content-manager,
+.settings-grid {
+  gap: 7px;
+}
+
+.content-list,
+.modrinth-results {
+  gap: 6px;
+}
+
+.content-row,
+.settings-grid article {
+  padding: 10px;
+}
+
+.drop-zone {
+  display: none !important;
+}
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(210, 225, 215, .18);
+  backdrop-filter: blur(7px) saturate(.9);
+  pointer-events: none;
+  animation: drop-overlay-in .16s ease-out;
+}
+
+.drop-overlay span {
+  padding: 12px 18px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 999px;
+  background: rgba(10,14,11,.78);
+  box-shadow: 0 18px 44px rgba(0,0,0,.24);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+@keyframes drop-overlay-in {
+  from { opacity: 0; }
+}
+
+.launcher-shell.is-wide .section-panel {
+  padding: 18px;
+}
+
+.launcher-shell.is-wide .content-manager {
+  width: min(100%, 780px);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "list"
+    "toolbar"
+    "modrinth";
+  gap: 8px;
+}
+
+.launcher-shell.is-wide .content-list {
+  grid-area: list;
+}
+
+.launcher-shell.is-wide .content-toolbar {
+  grid-area: toolbar;
+}
+
+.launcher-shell.is-wide .modrinth-section {
+  grid-area: modrinth;
+}
+
+.launcher-shell.is-wide .settings-grid {
+  width: min(100%, 760px);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1120px) {
+  .launcher-shell.is-wide .content-manager {
+    width: min(100%, 1040px);
+    grid-template-columns: minmax(300px, .96fr) minmax(340px, 1.04fr);
+    grid-template-areas:
+      "list toolbar"
+      "list modrinth";
+    column-gap: 12px;
+    row-gap: 8px;
+  }
+
+  .launcher-shell.is-wide .content-toolbar {
+    align-self: start;
+  }
+}
+
+@media (min-width: 1040px) {
+  .launcher-shell.is-wide .settings-grid {
+    width: min(100%, 920px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+
+@media (max-width: 1119px) {
+  .launcher-shell.is-wide .content-list,
+  .launcher-shell.is-wide .content-toolbar,
+  .launcher-shell.is-wide .modrinth-section {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Viewport polish pass */
+.launcher-shell,
+.section-panel,
+.content-manager,
+.settings-grid,
+.logs-panel,
+.desktop-sidebar,
+.launcher-menu-panel {
+  backface-visibility: hidden;
+}
+
+.launcher-shell {
+  transition:
+    padding-left .34s cubic-bezier(.22, 1, .36, 1),
+    background-color .3s ease;
+}
+
+.desktop-sidebar {
+  will-change: transform, opacity;
+  transition:
+    transform .34s cubic-bezier(.22, 1, .36, 1),
+    opacity .24s ease,
+    visibility 0s linear .34s;
+}
+
+.launcher-shell.is-wide .desktop-sidebar {
+  transition-delay: 0s;
+}
+
+.section-panel {
+  transition:
+    width .3s cubic-bezier(.22, 1, .36, 1),
+    height .3s cubic-bezier(.22, 1, .36, 1),
+    max-height .3s cubic-bezier(.22, 1, .36, 1),
+    padding .3s cubic-bezier(.22, 1, .36, 1),
+    transform .22s ease,
+    opacity .2s ease;
+}
+
+.section-panel.section-logs {
+  height: calc(100dvh - 80px);
+}
+
+.section-panel.section-logs > header {
+  margin-bottom: 12px;
+}
+
+.section-panel.section-logs .logs-panel {
+  min-height: 0;
+}
+
+.section-panel.section-logs .log-view-wrap {
+  min-height: 120px;
+}
+
+.section-panel.section-logs .log-view {
+  overflow: auto;
+}
+
+.launcher-menu-panel nav button,
+.desktop-sidebar nav button {
+  gap: 12px;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
+.nav-icon-home path {
+  fill: none;
+  stroke: currentColor;
+}
+
+/* Compact rollback for Minecraft/loader selector */
+.version-config {
+  width: 196px;
+  height: 31px;
+  border-radius: 14px;
+}
+
+.version-config.is-open {
+  width: min(378px, calc(100vw - 28px));
+  height: min(254px, calc(100dvh - 118px));
+}
+
+.version-badge {
+  height: 30px;
+  gap: 6px;
+  padding: 0 11px;
+  border-radius: 13px;
+}
+
+.version-config.is-open .version-badge {
+  border-radius: 13px 13px 8px 8px;
+}
+
+.version-config-panel {
+  height: auto;
+  padding: 6px 9px 9px;
+}
+
+.version-editor {
+  display: grid;
+  height: auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 9px;
+}
+
+.version-editor > section {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.version-editor > section.is-locked {
+  opacity: .5;
+}
+
+.version-editor label,
+.version-editor section > span {
+  color: rgba(255,255,255,.48);
+  font-size: 10px !important;
+  font-weight: 650;
+}
+
+.version-editor input {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 9px;
+  font-size: 10px;
+}
+
+.version-choice-list {
+  display: grid;
+  max-height: 112px;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.version-choice-list::-webkit-scrollbar {
+  display: none;
+}
+
+.version-choice-list button,
+.loader-choice-list button {
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 10px !important;
+  text-align: left;
+}
+
+.version-choice-list button:hover:not(:disabled),
+.loader-choice-list button:hover:not(:disabled) {
+  transform: none;
+}
+
+.loader-choice-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.loader-choice-list button {
+  display: block;
+}
+
+.loader-choice-list button strong,
+.loader-choice-list button small,
+.version-card-heading,
+.version-field {
+  display: none;
+}
+
+.loader-versions {
+  max-height: 51px;
+}
+
+.version-setting {
+  --version-editor-height: auto;
+  gap: 10px !important;
+}
+
+.version-setting .version-editor {
+  margin-top: 2px;
+}
+
+@media (max-width: 520px), (max-height: 560px) {
+  .launcher-shell {
+    grid-template-rows: 46px minmax(0, 1fr) auto;
+  }
+
+  .section-panel {
+    width: calc(100% - 18px);
+    max-height: calc(100dvh - 70px);
+    padding: 12px;
+  }
+
+  .section-panel > header {
+    margin-bottom: 10px;
+  }
+
+  .section-panel header h2 {
+    font-size: 22px;
+  }
+
+  .section-panel.section-logs {
+    height: calc(100dvh - 66px);
+  }
+
+  .section-panel.section-logs > header {
+    max-height: 36px;
+    margin-bottom: 8px;
+  }
+
+  .logs-panel {
+    gap: 7px;
+    padding-bottom: 2px;
+  }
+
+  .log-segmented {
+    width: 100%;
+    height: 34px;
+  }
+
+  .log-view {
+    padding: 9px;
+    font-size: 10px !important;
+  }
+
+  .version-config.is-open {
+    width: min(378px, calc(100vw - 20px));
+    height: min(254px, calc(100dvh - 90px));
+  }
+
+  .version-editor {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .version-choice-list {
+    max-height: 102px;
+  }
+}
+
+/* Version picker density: home popup should fit content instead of leaving a large empty area */
+.version-config.is-open {
+  width: min(396px, calc(100vw - 20px));
+  height: min(226px, calc(100dvh - 112px));
+}
+
+.version-config.is-open.is-vanilla {
+  height: min(184px, calc(100dvh - 112px));
+}
+
+.version-config.is-open.has-loader-version {
+  height: min(246px, calc(100dvh - 112px));
+}
+
+.version-config-panel {
+  padding: 6px 8px 8px;
+}
+
+.version-config .version-editor {
+  align-items: start;
+  gap: 8px;
+}
+
+.version-config .version-choice-list {
+  max-height: 98px;
+}
+
+.version-config.is-vanilla .version-choice-list {
+  max-height: 86px;
+}
+
+.version-config.has-loader-version .loader-versions {
+  max-height: 72px;
+}
+
+.version-config .loader-choice-list button,
+.version-config .version-choice-list button {
+  min-height: 28px;
+}
+
+.version-picker {
+  max-height: 150px;
+  margin: 4px 0 6px 40px;
+  padding: 5px;
+  gap: 4px;
+}
+
+.version-picker button {
+  min-height: 29px;
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+
+/* Java path editing: keep buttons beside the input only when there is enough room */
+.java-setting {
+  container-type: inline-size;
+}
+
+.java-path-row {
+  align-items: center;
+  transition: gap .22s ease;
+}
+
+.java-path-row input,
+.java-path-row button {
+  transition:
+    grid-column .24s cubic-bezier(.22, 1, .36, 1),
+    transform .24s cubic-bezier(.22, 1, .36, 1),
+    opacity .18s ease,
+    border-color .18s ease,
+    background .18s ease;
+}
+
+@container (max-width: 560px) {
+  .java-path-row:focus-within {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .java-path-row:focus-within input {
+    grid-column: 1 / -1;
+    transform: translateY(-1px);
+  }
+
+  .java-path-row:focus-within button {
+    min-width: 0;
+    transform: translateY(1px);
+    animation: java-action-settle .22s cubic-bezier(.22, 1, .36, 1);
+  }
+}
+
+@keyframes java-action-settle {
+  from {
+    opacity: .68;
+    transform: translateY(-4px) scale(.985);
+  }
+}
+
+@media (max-width: 520px), (max-height: 560px) {
+  .version-config.is-open {
+    width: min(396px, calc(100vw - 16px));
+  }
+
+  .version-config.is-open.is-vanilla {
+    height: min(176px, calc(100dvh - 86px));
+  }
+
+  .version-config.is-open.has-loader-version {
+    height: min(232px, calc(100dvh - 86px));
+  }
+
+  .version-config .version-choice-list {
+    max-height: 84px;
+  }
+
+  .version-config.is-vanilla .version-choice-list {
+    max-height: 76px;
+  }
 }

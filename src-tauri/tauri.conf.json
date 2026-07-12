@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "zzapcho Launcher",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "identifier": "kr.zzapcho.launcher",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "zzapcho Launcher", "width": 420, "height": 560, "minWidth": 420, "minHeight": 560, "resizable": true, "maximizable": true, "decorations": false, "shadow": true, "center": true }],
+    "windows": [{ "title": "zzapcho Launcher", "width": 420, "height": 560, "minWidth": 420, "minHeight": 560, "resizable": true, "maximizable": true, "decorations": false, "shadow": true, "center": true, "backgroundColor": "#0b1511" }],
     "security": { "csp": null }
   },
   "bundle": {

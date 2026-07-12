@@ -110,6 +110,31 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     return () => { void unlisten.then((dispose) => dispose()); };
   }, [editable, kind, profile.id]);
 
+  useEffect(() => {
+    if (isTauri() || !editable) return;
+    const over = (event: DragEvent) => {
+      event.preventDefault();
+      setDragging(true);
+    };
+    const leave = (event: DragEvent) => {
+      if (event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight) setDragging(false);
+    };
+    const drop = (event: DragEvent) => {
+      event.preventDefault();
+      setDragging(false);
+      const files = Array.from(event.dataTransfer?.files ?? []) as Array<File & { path?: string }>;
+      void installPaths(files.map((file) => file.path ?? file.name));
+    };
+    window.addEventListener("dragover", over);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("drop", drop);
+    };
+  }, [editable, kind, profile.id]);
+
   const openFolder = () => {
     if (isTauri()) void invoke("open_content_folder", { profileId: profile.id, kind });
   };
@@ -120,7 +145,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     try {
       const file = await getInstallableVersion(project.project_id, kind, profile);
       if (isTauri()) await invoke("download_content_file", { profileId: profile.id, kind, url: file.url, fileName: file.fileName, previousFileName: null });
-      content.add(kind, createUserContent(project.title, file.fileName, project.project_id, file.version, project.icon_url ?? undefined));
+      content.add(kind, createUserContent(project.title, file.fileName, project.project_id, file.version, project.icon_url ?? undefined, file.gameVersions));
     } catch (error) { console.error(error); }
     finally { setInstalling(null); }
   };
@@ -139,7 +164,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     setVersionBusy(true);
     try {
       if (isTauri()) await invoke("download_content_file", { profileId: profile.id, kind, url: option.url, fileName: option.fileName, previousFileName: entry.fileName ?? null });
-      content.patch(kind, entry.id, { version: option.version, fileName: option.fileName, url: option.url });
+      content.patch(kind, entry.id, { version: option.version, fileName: option.fileName, url: option.url, gameVersions: option.gameVersions });
       setVersionTarget(null);
     } catch (error) { console.error(error); }
     finally { setVersionBusy(false); }
@@ -156,26 +181,29 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
       <div className="content-list">
         {entries.length ? entries.map((entry) => {
           const canChangeVersion = editable && !entry.required && entry.source === "user" && Boolean(entry.projectId);
+          const canToggle = editable && !entry.required;
+          const canRemove = editable && !entry.required && entry.source === "user";
+          const supportedVersions = entry.gameVersions ?? [];
+          const versionMismatch = (kind === "resourcePacks" || kind === "shaders") && supportedVersions.length > 0 && !supportedVersions.includes(profile.minecraftVersion);
+          const versionHint = supportedVersions.slice(0, 4).join(", ") + (supportedVersions.length > 4 ? "..." : "");
           return <Fragment key={entry.id}>
             <div className={`content-row${entry.enabled ? "" : " is-disabled"}`}>
               {entry.iconUrl ? <img className="content-icon" src={entry.iconUrl} alt="" loading="lazy" decoding="async" /> : <span className={`content-icon content-icon-fallback is-${kind}`} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5m-5 3h5"/></svg></span>}
-              <div className="content-name"><strong>{entry.name}</strong><small><button className="content-version" type="button" disabled={!canChangeVersion} onClick={() => void openVersionPicker(entry)}>{entry.version}</button><span> · {entry.source === "server" ? "서버 관리" : entry.required ? "필수" : "사용자 추가"}</span></small></div>
-              {entry.source === "server" ? <span className="managed-badge">잠김</span> : <>
-                <button className={`toggle${entry.enabled ? " is-on" : ""}`} type="button" onClick={() => content.toggle(kind, entry.id)} disabled={!editable || entry.required} aria-label={`${entry.name} ${entry.enabled ? "끄기" : "켜기"}`}><span /></button>
-                <button className="remove-content" type="button" onClick={() => content.remove(kind, entry.id)} disabled={!editable || entry.required} aria-label={`${entry.name} 제거`}>×</button>
+              <div className="content-name"><strong>{entry.name}</strong><small><button className="content-version" type="button" disabled={!canChangeVersion} onClick={() => void openVersionPicker(entry)}>{entry.version}</button><span> · {entry.source === "server" ? "서버 관리" : entry.required ? "필수" : "사용자 추가"}</span></small>{versionMismatch && <small className="content-warning">지원 버전 {versionHint} · 현재 {profile.minecraftVersion}와 다를 수 있음</small>}</div>
+              {entry.source === "server" && entry.required ? <span className="managed-badge">필수</span> : <>
+                <button className={`toggle${entry.enabled ? " is-on" : ""}`} type="button" onClick={() => content.toggle(kind, entry.id)} disabled={!canToggle} aria-label={`${entry.name} ${entry.enabled ? "끄기" : "켜기"}`}><span /></button>
+                {entry.source === "server" ? <span className="managed-badge">서버</span> : <button className="remove-content" type="button" onClick={() => content.remove(kind, entry.id)} disabled={!canRemove} aria-label={`${entry.name} 제거`}>×</button>}
               </>}
             </div>
             {versionTarget === entry.id && <div className="version-picker">
-              {versionBusy && !versionOptions.length ? <span>버전 불러오는 중...</span> : versionOptions.length ? versionOptions.map((option) => <button className={option.version === entry.version ? "selected" : ""} type="button" key={option.id} disabled={versionBusy || option.version === entry.version} onClick={() => void changeVersion(entry, option)}><strong>{option.version}</strong><small>{option.fileName}</small></button>) : <span>선택 가능한 호환 버전이 없습니다.</span>}
+              {versionBusy && !versionOptions.length ? <span>버전 불러오는 중...</span> : versionOptions.length ? versionOptions.map((option) => <button className={option.version === entry.version ? "selected" : ""} type="button" key={option.id} disabled={versionBusy || option.version === entry.version} onClick={() => void changeVersion(entry, option)}><strong>{option.version}</strong><small>{option.fileName}{option.gameVersions.length ? ` · ${option.gameVersions.slice(0, 3).join(", ")}` : ""}</small></button>) : <span>선택 가능한 버전이 없습니다.</span>}
             </div>}
           </Fragment>;
         }) : <div className="section-empty">등록된 {title}가 없습니다.</div>}
       </div>
 
       {editable ? <>
-        <div className={`drop-zone${dragging ? " is-dragging" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); const files = Array.from(event.dataTransfer.files) as Array<File & { path?: string }>; void installPaths(files.map((file) => file.path ?? file.name)); }}>
-          파일을 여기에 끌어다 놓으세요
-        </div>
+        {dragging && <div className="drop-overlay" aria-hidden="true"><span>여기에 놓아 추가</span></div>}
         <div className="content-toolbar">
           <button className="section-action" type="button" onClick={openFolder}>폴더에서 추가</button>
           <form onSubmit={(event) => { event.preventDefault(); setHasMore(true); void loadProjects(query, true); }}>
@@ -250,8 +278,6 @@ function JavaSetting({ profile }: { profile: LauncherProfile }) {
   const [searched, setSearched] = useState(false);
   const [busy, setBusy] = useState<"search" | "download" | null>(null);
   const [error, setError] = useState("");
-  const compatible = runtimes.filter((runtime) => runtime.compatible);
-
   const findInstalled = async () => {
     setBusy("search"); setError("");
     try {
@@ -284,8 +310,8 @@ function JavaSetting({ profile }: { profile: LauncherProfile }) {
       <button type="button" disabled={busy !== null} onClick={() => void findInstalled()}>{busy === "search" ? "찾는 중..." : "설치된 Java 찾기"}</button>
       <button type="button" disabled={busy !== null} onClick={() => void download()}>{busy === "download" ? "다운로드 중..." : `Java ${requiredMajor} 다운로드`}</button>
     </div>
-    {searched && compatible.length > 0 && <div className="java-runtime-list">{compatible.map((runtime) => <button className={javaPath === runtime.path ? "selected" : ""} type="button" key={runtime.path} onClick={() => setJavaPath(profile.id, runtime.path)}><strong>Java {runtime.major}</strong><span>{runtime.source} · {runtime.path}</span></button>)}</div>}
-    {searched && compatible.length === 0 && <div className="java-missing"><span>이 프로필에 맞는 Java {requiredMajor}을 찾지 못했습니다.</span><button type="button" disabled={busy !== null} onClick={() => void download()}>{busy === "download" ? "다운로드 중..." : `Java ${requiredMajor} 자동 다운로드`}</button></div>}
+    {searched && runtimes.length > 0 && <div className="java-runtime-list">{runtimes.map((runtime) => <button className={javaPath === runtime.path ? "selected" : ""} type="button" key={runtime.path} onClick={() => setJavaPath(profile.id, runtime.path)}><strong>Java {runtime.major}{runtime.compatible ? "" : " · 버전 다름"}</strong><span>{runtime.source} · {runtime.path}</span></button>)}</div>}
+    {searched && runtimes.length === 0 && <div className="java-missing"><span>설치된 Java를 찾지 못했습니다.</span><button type="button" disabled={busy !== null} onClick={() => void download()}>{busy === "download" ? "다운로드 중..." : `Java ${requiredMajor} 자동 다운로드`}</button></div>}
     {!searched && <small>경로를 직접 입력하거나 설치된 Java를 검색할 수 있습니다.</small>}
     {error && <small className="java-error">{error}</small>}
   </article>;
@@ -300,23 +326,23 @@ function SettingsPanel({ profile, configuration, account, onLogout, appUpdate }:
       <div><span>Microsoft 계정</span><strong>{account.name}</strong></div>
       <button type="button" onClick={() => void onLogout()}>로그아웃</button>
     </article>
-    {(profile.editableFields.minecraftVersion || profile.editableFields.modLoader) && <article className="version-setting">
-      <span>게임 버전 및 로더</span>
-      <VersionEditor profile={profile} configuration={configuration} />
-    </article>}
-    <article className="memory-setting">
-      <div><span>게임 메모리</span>{editingMemory ? <input autoFocus type="number" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} onBlur={() => setEditingMemory(false)} onKeyDown={(event) => event.key === "Enter" && setEditingMemory(false)} /> : <button type="button" onClick={() => setEditingMemory(true)}>{settings.memoryGb.toFixed(1)} GB</button>}</div>
-      <input className="memory-slider" type="range" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} />
-    </article>
-    <article><span>게임 폴더</span><strong>.minecraft</strong><button className="settings-button" type="button" onClick={() => { if (isTauri()) void invoke("open_game_folder"); }}>폴더 열기</button></article>
     <article className={`update-setting${appUpdate.available ? " is-available" : ""}`}>
       <span>업데이트</span>
       <strong>{appUpdate.available ? `버전 ${appUpdate.version} 사용 가능` : "최신 버전"}</strong>
       <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
       <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
     </article>
-    <article><span>정보</span><strong>zzapcho Launcher 0.5.3</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    {(profile.editableFields.minecraftVersion || profile.editableFields.modLoader) && <article className="version-setting">
+      <span>게임 버전 및 로더</span>
+      <VersionEditor profile={profile} configuration={configuration} />
+    </article>}
     <JavaSetting profile={profile} />
+    <article className="memory-setting">
+      <div><span>게임 메모리</span>{editingMemory ? <input autoFocus type="number" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} onBlur={() => setEditingMemory(false)} onKeyDown={(event) => event.key === "Enter" && setEditingMemory(false)} /> : <button type="button" onClick={() => setEditingMemory(true)}>{settings.memoryGb.toFixed(1)} GB</button>}</div>
+      <input className="memory-slider" type="range" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} />
+    </article>
+    <article><span>게임 폴더</span><strong>.minecraft</strong><button className="settings-button" type="button" onClick={() => { if (isTauri()) void invoke("open_game_folder"); }}>폴더 열기</button></article>
+    <article className="info-setting"><span>정보</span><strong>zzapcho Launcher 0.6.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <footer>made by zzapcho</footer>
   </div>;
 }
@@ -325,7 +351,7 @@ export function SectionPanel({ profile, configuration, section, account, onLogou
   const copy = sectionCopy[section];
   const contentKind: ContentKind | null = section === "mods" ? "mods" : section === "resource-packs" ? "resourcePacks" : section === "shaders" ? "shaders" : null;
   return (
-    <section className="section-panel" aria-label={copy.title}>
+    <section className={`section-panel section-${section}`} aria-label={copy.title}>
       <header><h2>{copy.title}</h2></header>
       {contentKind && <ContentManager key={`${profile.id}-${contentKind}`} profile={profile} kind={contentKind} />}
       {section === "logs" && <LogsPanel />}

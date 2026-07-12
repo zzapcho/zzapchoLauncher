@@ -1,12 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { loginWithMicrosoft, logoutAccount, restoreAccount, type DeviceCodeInfo } from "../services/authService";
 import type { LauncherAccount } from "../types/auth";
-import { useCloseLock } from "../hooks/useCloseLock";
 import { WindowActionButtons } from "./WindowControls";
 
 function LoginStatus({ deviceCode }: { deviceCode: DeviceCodeInfo | null }) {
   return <main className="login-screen">
-    <div className="window-titlebar login-titlebar" data-tauri-drag-region><WindowActionButtons maximize={false} close={false} /></div>
+    <div className="window-titlebar login-titlebar" data-tauri-drag-region><WindowActionButtons maximize={false} close /></div>
     <div className="login-status">
       <span className="loader" />
       <p>로그인 중...</p>
@@ -21,7 +20,6 @@ export function AuthGate({ children }: { children: (account: LauncherAccount, lo
   const [loggingIn, setLoggingIn] = useState(false);
   const [deviceCode, setDeviceCode] = useState<DeviceCodeInfo | null>(null);
   const [error, setError] = useState("");
-  useCloseLock(checking || loggingIn);
 
   useEffect(() => {
     restoreAccount().then(setAccount).catch(() => setAccount(null)).finally(() => setChecking(false));
