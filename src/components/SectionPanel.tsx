@@ -386,7 +386,7 @@ function SettingsPanel({ profile, configuration, account, onLogout, appUpdate }:
       <input className="memory-slider" type="range" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} />
     </article>
     <article><span>게임 폴더</span><strong>.minecraft</strong><button className="settings-button" type="button" onClick={() => { if (isTauri()) void invoke("open_game_folder"); }}>폴더 열기</button></article>
-    <article className="info-setting"><span>정보</span><strong>zzapcho Launcher 0.6.2</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article className="info-setting"><span>정보</span><strong>zzapcho Launcher 0.7.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <footer>made by zzapcho</footer>
   </div>;
 }
