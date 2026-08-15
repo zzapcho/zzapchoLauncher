@@ -10,6 +10,9 @@ mod java_runtime;
 mod minecraft;
 mod version_catalog;
 
+#[cfg(desktop)]
+mod discord_presence;
+
 const MICROSOFT_CLIENT_ID: &str = "00000000402b5328";
 const MICROSOFT_SCOPE: &str = "XboxLive.signin offline_access";
 
@@ -510,6 +513,9 @@ async fn download_content_file(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(desktop)]
+    let _discord_presence = discord_presence::DiscordPresence::start();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_process::init())

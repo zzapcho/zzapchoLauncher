@@ -4,7 +4,10 @@ use std::{
     io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    sync::atomic::{AtomicBool, AtomicU32, Ordering},
+    sync::{
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        Mutex,
+    },
     thread,
 };
 
@@ -26,6 +29,75 @@ use tauri::{Emitter, Manager};
 static GAME_RUNNING: AtomicBool = AtomicBool::new(false);
 static GAME_PROCESS_ID: AtomicU32 = AtomicU32::new(0);
 static FORCE_STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
+static GAME_VERSION: Mutex<Option<String>> = Mutex::new(None);
+
+pub(crate) fn game_process_running() -> bool {
+    GAME_PROCESS_ID.load(Ordering::SeqCst) != 0
+}
+
+pub(crate) fn running_game_version() -> Option<String> {
+    if !game_process_running() {
+        return None;
+    }
+    GAME_VERSION.lock().ok().and_then(|version| version.clone())
+}
+
+#[cfg(windows)]
+fn keep_minecraft_window_title(process_id: u32, minecraft_version: String) {
+    use std::{os::windows::ffi::OsStrExt, time::Duration};
+    use windows_sys::Win32::{
+        Foundation::{HWND, LPARAM},
+        UI::WindowsAndMessaging::{
+            EnumWindows, GetWindowThreadProcessId, IsWindowVisible, SetWindowTextW,
+        },
+    };
+
+    struct WindowSearch {
+        process_id: u32,
+        title: Vec<u16>,
+        updated: bool,
+    }
+
+    unsafe extern "system" fn update_owned_window(window: HWND, data: LPARAM) -> i32 {
+        let search = unsafe { &mut *(data as *mut WindowSearch) };
+        let mut owner_process_id = 0;
+        unsafe { GetWindowThreadProcessId(window, &mut owner_process_id) };
+        if owner_process_id == search.process_id && unsafe { IsWindowVisible(window) } != 0 {
+            if unsafe { SetWindowTextW(window, search.title.as_ptr()) } != 0 {
+                search.updated = true;
+                return 0;
+            }
+        }
+        1
+    }
+
+    thread::spawn(move || {
+        let title =
+            std::ffi::OsStr::new(&format!("zzapchoLauncher - Minecraft {minecraft_version}"))
+                .encode_wide()
+                .chain(Some(0))
+                .collect::<Vec<_>>();
+
+        while GAME_PROCESS_ID.load(Ordering::SeqCst) == process_id {
+            let mut search = WindowSearch {
+                process_id,
+                title: title.clone(),
+                updated: false,
+            };
+            unsafe {
+                EnumWindows(
+                    Some(update_owned_window),
+                    &mut search as *mut WindowSearch as LPARAM,
+                );
+            }
+            thread::sleep(if search.updated {
+                Duration::from_secs(2)
+            } else {
+                Duration::from_millis(250)
+            });
+        }
+    });
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -369,8 +441,14 @@ fn prepare_and_launch(
     }
     let mut child = process.spawn().map_err(|error| error.to_string())?;
     let process_id = child.id();
+    let minecraft_version = request.minecraft_version.clone();
+    if let Ok(mut running_version) = GAME_VERSION.lock() {
+        *running_version = Some(minecraft_version.clone());
+    }
     GAME_PROCESS_ID.store(process_id, Ordering::SeqCst);
     FORCE_STOP_REQUESTED.store(false, Ordering::SeqCst);
+    #[cfg(windows)]
+    keep_minecraft_window_title(process_id, minecraft_version);
     if let Some(stdout) = child.stdout.take() {
         read_game_output(stdout, app.clone());
     }
@@ -381,6 +459,9 @@ fn prepare_and_launch(
         let status = child.wait();
         GAME_RUNNING.store(false, Ordering::SeqCst);
         GAME_PROCESS_ID.store(0, Ordering::SeqCst);
+        if let Ok(mut running_version) = GAME_VERSION.lock() {
+            *running_version = None;
+        }
         let forced = FORCE_STOP_REQUESTED.swap(false, Ordering::SeqCst);
         let code = status.ok().and_then(|value| value.code());
         let _ = app.emit_to(
