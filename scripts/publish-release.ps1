@@ -150,7 +150,29 @@ if (!$Msi) { throw "MSI installer was not created for v$Version." }
 
 $SignaturePath = "$($Nsis.FullName).sig"
 Write-Step "Signing updater installer"
-Invoke-Checked $Npm @("exec", "tauri", "signer", "sign", "--", "-f", $KeyPath, "--password=", $Nsis.FullName)
+$PreviousSigningPassword = $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+$SigningPassword = $PreviousSigningPassword
+if ([string]::IsNullOrEmpty($SigningPassword)) {
+    $SecureSigningPassword = Read-Host "Updater signing key password" -AsSecureString
+    $SigningCredential = [PSCredential]::new("updater-signing-key", $SecureSigningPassword)
+    $SigningPassword = $SigningCredential.GetNetworkCredential().Password
+}
+
+try {
+    $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = $SigningPassword
+    Invoke-Checked $Npm @("exec", "tauri", "signer", "sign", "--", "-f", $KeyPath, $Nsis.FullName)
+}
+finally {
+    if ($null -eq $PreviousSigningPassword) {
+        Remove-Item Env:\TAURI_SIGNING_PRIVATE_KEY_PASSWORD -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = $PreviousSigningPassword
+    }
+    $SigningPassword = $null
+    $SigningCredential = $null
+    $SecureSigningPassword = $null
+}
 if (!(Test-Path -LiteralPath $SignaturePath)) { throw "Updater signature was not created." }
 
 $ReleaseInstaller = Join-Path $BundleRoot "zzapchoLauncher_${Version}_x64-setup.exe"

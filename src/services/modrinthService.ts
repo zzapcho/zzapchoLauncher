@@ -40,9 +40,11 @@ export interface ModrinthSearchResult {
   total: number;
 }
 
+const requiresExactGameVersion = (kind: ContentKind) => kind === "mods";
+
 export async function searchModrinth(kind: ContentKind, profile: LauncherProfile, query = "", offset = 0, limit = 6): Promise<ModrinthSearchResult> {
   const facets = [[`project_type:${projectType[kind]}`]];
-  if (kind === "mods") facets.push([`versions:${profile.minecraftVersion}`]);
+  if (requiresExactGameVersion(kind)) facets.push([`versions:${profile.minecraftVersion}`]);
   if (kind === "mods" && profile.modLoader !== "vanilla") facets.push([`categories:${profile.modLoader}`]);
   const params = new URLSearchParams({ query, index: query ? "relevance" : "downloads", limit: String(limit), offset: String(offset), facets: JSON.stringify(facets) });
   const response = await fetch(`${MODRINTH_API}/search?${params}`);
@@ -53,7 +55,7 @@ export async function searchModrinth(kind: ContentKind, profile: LauncherProfile
 
 export async function getInstallableVersions(projectId: string, kind: ContentKind, profile: LauncherProfile): Promise<ModrinthVersionOption[]> {
   const params = new URLSearchParams({ include_changelog: "false" });
-  if (kind === "mods") params.set("game_versions", JSON.stringify([profile.minecraftVersion]));
+  if (requiresExactGameVersion(kind)) params.set("game_versions", JSON.stringify([profile.minecraftVersion]));
   if (kind === "mods" && profile.modLoader !== "vanilla") params.set("loaders", JSON.stringify([profile.modLoader]));
   const response = await fetch(`${MODRINTH_API}/project/${projectId}/version?${params}`);
   if (!response.ok) throw new Error(`Modrinth versions failed: ${response.status}`);
@@ -66,7 +68,7 @@ export async function getInstallableVersions(projectId: string, kind: ContentKin
 
 export async function getInstallableVersion(projectId: string, kind: ContentKind, profile: LauncherProfile): Promise<ModrinthVersionOption> {
   const latest = (await getInstallableVersions(projectId, kind, profile))[0];
-  if (!latest) throw new Error("호환되는 파일이 없습니다.");
+  if (!latest) throw new Error(kind === "mods" ? "현재 게임 버전과 로더에 맞는 파일이 없습니다." : "설치할 수 있는 파일이 없습니다.");
   return latest;
 }
 

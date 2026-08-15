@@ -1578,3 +1578,533 @@ html, body, #root {
     max-height: 76px;
   }
 }
+
+/* Readability and stable overlay pass */
+:root {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: .004em;
+}
+
+button,
+input {
+  line-height: 1.35;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent, #8fe388) 82%, white);
+  outline-offset: 2px;
+}
+
+.launcher-menu-panel nav button,
+.desktop-sidebar nav button {
+  min-height: 42px;
+  font-size: 13px !important;
+  font-weight: 650;
+}
+
+.profile-copy {
+  max-width: 350px;
+  min-height: 72px;
+}
+
+.profile-copy h2 {
+  font-size: 28px;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.play-button {
+  min-width: var(--play-width, 148px);
+  height: 66px;
+  font-size: 16px !important;
+}
+
+.profile-trigger strong,
+.profile-menu button strong {
+  font-size: 13px !important;
+}
+
+.profile-menu-label,
+.profile-menu button small {
+  color: rgba(255,255,255,.64);
+  font-size: 11px !important;
+}
+
+.section-panel header h2 {
+  font-size: 25px;
+  line-height: 1.18;
+}
+
+.content-row strong,
+.content-name strong,
+.modrinth-heading strong,
+.modrinth-results strong,
+.settings-grid article > strong,
+.settings-grid strong,
+.account-setting > div:nth-child(2) strong,
+.java-setting-heading strong,
+.java-runtime-list button strong {
+  font-size: 13px !important;
+  line-height: 1.35;
+}
+
+.content-row small,
+.content-name small,
+.content-state,
+.section-empty,
+.locked-note,
+.inline-loading,
+.locked-panel,
+.settings-grid article > span,
+.settings-grid article > small,
+.settings-grid span,
+.settings-grid small,
+.settings-grid footer,
+.modrinth-heading span,
+.modrinth-results small,
+.load-more-sentinel,
+.managed-badge,
+.java-version-choice button,
+.java-runtime-list button span,
+.java-missing span,
+.memory-setting > div span,
+.java-setting-heading span,
+.toast-message {
+  color: rgba(255,255,255,.64);
+  font-size: 11px !important;
+  line-height: 1.42;
+}
+
+.section-action,
+.content-toolbar input,
+.content-toolbar form button,
+.modrinth-results article button,
+.log-segmented button,
+.java-path-row input,
+.java-path-row button,
+.java-missing button,
+.memory-setting > div button,
+.memory-setting > div input,
+.settings-button,
+.account-setting > button {
+  font-size: 12px !important;
+}
+
+.content-row {
+  min-height: 56px;
+  padding: 10px 11px;
+}
+
+.content-warning {
+  color: #ffe08a !important;
+}
+
+.settings-grid article {
+  gap: 8px;
+  padding: 15px;
+  background: rgba(8,12,9,.62);
+}
+
+.log-view {
+  font-size: 12px !important;
+  line-height: 1.7;
+}
+
+/* Opening the home version selector must never resize or shift the hero layout. */
+.version-config,
+.version-config.is-open,
+.version-config.is-open.is-vanilla,
+.version-config.is-open.has-loader-version {
+  width: 232px;
+  height: 38px;
+  overflow: visible;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  transition: none;
+}
+
+.version-badge {
+  height: 38px;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 15px;
+  color: rgba(255,255,255,.94);
+  background: rgba(7,10,8,.68);
+  font-size: 12px !important;
+}
+
+.version-config.is-open .version-badge {
+  border-color: color-mix(in srgb, var(--accent) 48%, rgba(255,255,255,.22));
+  border-radius: 15px;
+  background: rgba(7,10,8,.82);
+}
+
+.version-config-panel {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  z-index: 32;
+  width: min(520px, calc(100vw - 24px));
+  height: min(344px, calc(100dvh - 138px));
+  max-height: 344px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 18px;
+  background: rgba(7,11,8,.96);
+  box-shadow: 0 22px 54px rgba(0,0,0,.46);
+  backdrop-filter: blur(18px);
+  transform: translateX(-50%);
+  animation: stable-version-popover-in .2s cubic-bezier(.22,1,.36,1);
+}
+
+.version-config-compact-header {
+  display: none;
+}
+
+.version-config.is-vanilla .version-config-panel {
+  height: min(286px, calc(100dvh - 138px));
+}
+
+.version-config.is-closing .version-config-panel {
+  opacity: 0;
+  transform: translate(-50%, 6px) scale(.985);
+  transition: opacity .14s ease, transform .16s ease;
+}
+
+@keyframes stable-version-popover-in {
+  from { opacity: 0; transform: translate(-50%, 8px) scale(.985); }
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+.version-editor,
+.version-config .version-editor {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 10px;
+}
+
+.version-editor > .version-editor-card {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 14px;
+  background: rgba(255,255,255,.045);
+}
+
+.version-card-heading {
+  display: flex !important;
+  min-height: 22px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.version-card-heading span,
+.version-field label {
+  display: block;
+  color: rgba(255,255,255,.68);
+  font-size: 11px !important;
+  font-weight: 720;
+}
+
+.version-card-heading strong {
+  display: block;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-field {
+  display: grid !important;
+  gap: 6px;
+}
+
+.version-editor input {
+  height: 36px;
+  padding: 0 11px;
+  border-radius: 10px;
+  color: #fff;
+  background: rgba(255,255,255,.075);
+  font-size: 12px;
+}
+
+.version-editor input::placeholder {
+  color: rgba(255,255,255,.42);
+}
+
+.version-choice-list,
+.version-config .version-choice-list,
+.version-config.is-vanilla .version-choice-list,
+.version-config.has-loader-version .loader-versions {
+  display: grid;
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+  align-content: start;
+  gap: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.version-choice-list button,
+.loader-choice-list button,
+.version-config .loader-choice-list button,
+.version-config .version-choice-list button {
+  min-height: 34px;
+  padding: 6px 9px;
+  border-radius: 9px;
+  color: rgba(255,255,255,.86);
+  font-size: 12px !important;
+  line-height: 1.25;
+}
+
+.version-choice-list button.selected,
+.loader-choice-list button.selected {
+  border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+  color: color-mix(in srgb, var(--accent) 82%, white);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  font-weight: 760;
+}
+
+.version-choice-list small {
+  color: rgba(255,255,255,.62);
+  font-size: 11px !important;
+  line-height: 1.45;
+}
+
+.loader-choice-list {
+  gap: 6px;
+}
+
+.loader-choice-list button {
+  display: grid;
+  min-height: 46px;
+  align-content: center;
+  gap: 2px;
+}
+
+.loader-choice-list button strong,
+.loader-choice-list button small {
+  display: block !important;
+}
+
+.loader-choice-list button strong {
+  font-size: 12px;
+}
+
+.loader-choice-list button small {
+  color: rgba(255,255,255,.55);
+  font-size: 10px !important;
+}
+
+.vanilla-loader-note {
+  margin: auto 0 0;
+  color: rgba(255,255,255,.68);
+  font-size: 11px !important;
+  line-height: 1.5;
+}
+
+/* The settings version editor stays inline, roomy and independently scrollable. */
+.version-setting {
+  --version-editor-height: auto;
+  gap: 12px !important;
+}
+
+.version-setting .version-editor {
+  height: auto;
+  margin-top: 2px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.version-setting .version-editor-card {
+  min-height: 248px;
+}
+
+.version-setting .version-choice-list {
+  max-height: 166px;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+}
+
+/* Content version menus close on focus exit; this wrapper keeps the focus scope stable. */
+.content-entry {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.version-picker {
+  max-height: 190px;
+  margin: 0 0 7px 42px;
+  padding: 7px;
+  border-color: rgba(255,255,255,.18);
+  background: rgba(7,10,8,.94);
+  box-shadow: 0 12px 30px rgba(0,0,0,.26);
+}
+
+.version-picker button {
+  min-height: 38px;
+  padding: 7px 10px;
+}
+
+.version-picker button strong {
+  font-size: 12px;
+}
+
+.version-picker button small,
+.version-picker > span {
+  color: rgba(255,255,255,.62);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+@media (max-width: 620px), (max-height: 620px) {
+  .version-config,
+  .version-config.is-open,
+  .version-config.is-open.is-vanilla,
+  .version-config.is-open.has-loader-version {
+    width: 224px;
+    height: 36px;
+  }
+
+  .version-badge {
+    height: 36px;
+  }
+
+  .version-config-panel,
+  .version-config.is-vanilla .version-config-panel {
+    position: fixed;
+    inset: 10px;
+    z-index: 100;
+    display: flex;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    padding: 12px;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+    border-radius: 18px;
+    transform: none;
+    animation: compact-version-dialog-in .2s cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .version-config.is-open,
+  .version-config.is-closing {
+    z-index: 100;
+  }
+
+  .version-config.is-closing .version-config-panel {
+    opacity: 0;
+    transform: scale(.985);
+  }
+
+  .version-config-compact-header {
+    display: flex;
+    min-height: 38px;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px 0 5px;
+  }
+
+  .version-config-compact-header strong {
+    color: rgba(255,255,255,.96);
+    font-size: 15px;
+    font-weight: 780;
+  }
+
+  .version-config-compact-header button {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    padding: 0 0 2px;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 12px;
+    color: rgba(255,255,255,.86);
+    background: rgba(255,255,255,.07);
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .version-editor,
+  .version-config .version-editor {
+    flex: 1 1 0;
+    height: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .version-editor > .version-editor-card {
+    gap: 7px;
+    padding: 9px;
+  }
+
+  .version-setting .version-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .version-setting .version-editor-card {
+    min-height: 230px;
+  }
+}
+
+@media (max-width: 390px) {
+  .version-config-panel,
+  .version-config.is-vanilla .version-config-panel {
+    overflow-y: auto;
+  }
+
+  .version-config-compact-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin: 0 -2px;
+    padding: 0 4px 0 7px;
+    border-radius: 12px;
+    background: rgba(7,11,8,.98);
+  }
+
+  .version-config .version-editor {
+    display: grid;
+    height: auto;
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .version-config .version-editor-card {
+    min-height: 270px;
+  }
+}
+
+@keyframes compact-version-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}

@@ -8,3 +8,7 @@ src-tauri/gen/
 Backups/*.zip
 !Backups/.gitkeep
 .tauri-updater.key*
+*.key
+*.key.pub
+*.p12
+*.pfx

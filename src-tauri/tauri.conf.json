@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "zzapcho Launcher",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "identifier": "kr.zzapcho.launcher",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -27,7 +27,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFCRkQwOEZFNzQ2QTQ1NzMKUldSelJXcDAvZ2o5cTB3TmlwV01IWmVyRndGRk5JSy94L2tJc0dabmdYQmJQZFVRWTFhQUgrSXMK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM2M0EzODJBRUE3MzBGMjcKUldRbkQzUHFLamc2eGtZd3RkYjZMOWtCU0lXR1hwNFRqd05OZlpSbDBrSWZVa29ha2dCZFhTS3EK",
       "endpoints": [
         "https://github.com/zzapcho/zzapchoLauncher/releases/latest/download/latest.json"
       ],

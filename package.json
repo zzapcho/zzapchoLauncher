@@ -1,7 +1,7 @@
 {
   "name": "zzapcho-launcher",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.6.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -26,5 +26,8 @@
     "@vitejs/plugin-react": "^5.0.4",
     "typescript": "~5.9.3",
     "vite": "^7.1.7"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
   }
 }

@@ -45,17 +45,16 @@ interface VersionEditorProps {
 export function VersionEditor({ profile, configuration }: VersionEditorProps) {
   const [minecraftVersions, setMinecraftVersions] = useState<string[]>([]);
   const [loaderVersions, setLoaderVersions] = useState<string[]>([]);
-  const [minecraftDraft, setMinecraftDraft] = useState(profile.minecraftVersion);
-  const [loaderDraft, setLoaderDraft] = useState(profile.modLoaderVersion);
+  const [minecraftQuery, setMinecraftQuery] = useState("");
+  const [loaderQuery, setLoaderQuery] = useState("");
   const [loadingMinecraft, setLoadingMinecraft] = useState(true);
   const [loadingLoader, setLoadingLoader] = useState(false);
   const canEditMinecraft = profile.editableFields.minecraftVersion;
   const canEditLoader = profile.editableFields.modLoader;
-  const visibleMinecraftVersions = useMemo(() => searchVersions(minecraftVersions, minecraftDraft, profile.minecraftVersion, 80), [minecraftDraft, minecraftVersions, profile.minecraftVersion]);
-  const visibleLoaderVersions = useMemo(() => searchVersions(loaderVersions, loaderDraft, profile.modLoaderVersion, 48), [loaderDraft, loaderVersions, profile.modLoaderVersion]);
+  const visibleMinecraftVersions = useMemo(() => searchVersions(minecraftVersions, minecraftQuery, profile.minecraftVersion, 80), [minecraftQuery, minecraftVersions, profile.minecraftVersion]);
+  const visibleLoaderVersions = useMemo(() => searchVersions(loaderVersions, loaderQuery, profile.modLoaderVersion, 48), [loaderQuery, loaderVersions, profile.modLoaderVersion]);
 
-  useEffect(() => setMinecraftDraft(profile.minecraftVersion), [profile.minecraftVersion]);
-  useEffect(() => setLoaderDraft(profile.modLoaderVersion), [profile.modLoaderVersion]);
+  useEffect(() => { setMinecraftQuery(""); setLoaderQuery(""); }, [profile.id]);
   useEffect(() => {
     let cancelled = false;
     setLoadingMinecraft(true);
@@ -68,7 +67,8 @@ export function VersionEditor({ profile, configuration }: VersionEditorProps) {
   useEffect(() => {
     let cancelled = false;
     setLoaderVersions([]);
-    if (profile.modLoader === "vanilla") return;
+    setLoaderQuery("");
+    if (profile.modLoader === "vanilla") { setLoadingLoader(false); return; }
     setLoadingLoader(true);
     void getLoaderVersions(profile.modLoader, profile.minecraftVersion)
       .then((versions) => {
@@ -81,35 +81,43 @@ export function VersionEditor({ profile, configuration }: VersionEditorProps) {
     return () => { cancelled = true; };
   }, [profile.minecraftVersion, profile.modLoader, canEditLoader]);
 
-  const commitMinecraft = () => {
-    if (canEditMinecraft && minecraftDraft.trim()) configuration.setMinecraftVersion(minecraftDraft);
-    else setMinecraftDraft(profile.minecraftVersion);
+  const applyMinecraftVersion = (version: string) => {
+    if (!canEditMinecraft || !version.trim()) return;
+    configuration.setMinecraftVersion(version.trim());
+    setMinecraftQuery("");
   };
-  const commitLoader = () => {
-    if (canEditLoader && loaderDraft.trim()) configuration.setModLoaderVersion(loaderDraft);
-    else setLoaderDraft(profile.modLoaderVersion);
+  const applyLoaderVersion = (version: string) => {
+    if (!canEditLoader || !version.trim()) return;
+    configuration.setModLoaderVersion(version.trim());
+    setLoaderQuery("");
   };
 
   return <div className="version-editor">
-    <section className={!canEditMinecraft ? "is-locked" : ""}>
-      <label htmlFor={`minecraft-version-${profile.id}`}>Minecraft 버전</label>
-      <input id={`minecraft-version-${profile.id}`} value={minecraftDraft} disabled={!canEditMinecraft} onChange={(event) => setMinecraftDraft(event.target.value)} onBlur={commitMinecraft} onKeyDown={(event) => { if (event.key === "Enter") { commitMinecraft(); event.currentTarget.blur(); } }} inputMode="decimal" />
-      <div className="version-choice-list">
-        {loadingMinecraft ? <small>버전 불러오는 중...</small> : visibleMinecraftVersions.length ? visibleMinecraftVersions.map((version) => <button className={version === profile.minecraftVersion ? "selected" : ""} type="button" key={version} disabled={!canEditMinecraft} onClick={() => configuration.setMinecraftVersion(version)}>{version}</button>) : <small>검색 결과 없음 · Enter로 직접 적용</small>}
+    <section className={`version-editor-card${!canEditMinecraft ? " is-locked" : ""}`}>
+      <div className="version-card-heading"><span>Minecraft 버전</span><strong>{profile.minecraftVersion}</strong></div>
+      <div className="version-field">
+        <label htmlFor={`minecraft-version-${profile.id}`}>버전 검색 또는 직접 입력</label>
+        <input id={`minecraft-version-${profile.id}`} value={minecraftQuery} disabled={!canEditMinecraft} onChange={(event) => setMinecraftQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyMinecraftVersion(minecraftQuery); }} inputMode="decimal" placeholder={`현재 ${profile.minecraftVersion} · 예: 1.21.5`} />
+      </div>
+      <div className="version-choice-list" role="listbox" aria-label="Minecraft 버전 목록">
+        {loadingMinecraft ? <small>버전 불러오는 중...</small> : visibleMinecraftVersions.length ? visibleMinecraftVersions.map((version) => <button className={version === profile.minecraftVersion ? "selected" : ""} type="button" key={version} disabled={!canEditMinecraft} aria-selected={version === profile.minecraftVersion} onClick={() => applyMinecraftVersion(version)}>{version}</button>) : <small>검색 결과 없음 · Enter를 누르면 직접 적용됩니다.</small>}
       </div>
     </section>
-    <section className={!canEditLoader ? "is-locked" : ""}>
-      <span>로더</span>
+    <section className={`version-editor-card${!canEditLoader ? " is-locked" : ""}`}>
+      <div className="version-card-heading"><span>모드 로더</span><strong>{loaderLabel(profile.modLoader)}{profile.modLoaderVersion ? ` ${profile.modLoaderVersion}` : ""}</strong></div>
       <div className="loader-choice-list">
-        {LOADERS.map((loader) => <button className={loader.id === profile.modLoader ? "selected" : ""} type="button" key={loader.id} disabled={!canEditLoader} onClick={() => configuration.setModLoader(loader.id)}>{loader.label}</button>)}
+        {LOADERS.map((loader) => <button className={loader.id === profile.modLoader ? "selected" : ""} type="button" key={loader.id} disabled={!canEditLoader} aria-pressed={loader.id === profile.modLoader} onClick={() => configuration.setModLoader(loader.id)}><strong>{loader.label}</strong><small>{loader.id === "vanilla" ? "기본 게임" : "모드 사용"}</small></button>)}
       </div>
       {profile.modLoader !== "vanilla" && <>
-        <label htmlFor={`loader-version-${profile.id}`}>로더 버전</label>
-        <input id={`loader-version-${profile.id}`} value={loaderDraft} disabled={!canEditLoader} onChange={(event) => setLoaderDraft(event.target.value)} onBlur={commitLoader} onKeyDown={(event) => { if (event.key === "Enter") { commitLoader(); event.currentTarget.blur(); } }} inputMode="decimal" placeholder={loadingLoader ? "최신 버전 확인 중..." : "버전 직접 입력"} />
-        <div className="version-choice-list loader-versions">
-          {loadingLoader ? <small>로더 버전 불러오는 중...</small> : visibleLoaderVersions.length ? visibleLoaderVersions.map((version) => <button className={version === profile.modLoaderVersion ? "selected" : ""} type="button" key={version} disabled={!canEditLoader} onClick={() => configuration.setModLoaderVersion(version)}>{version}</button>) : <small>검색 결과 없음 · Enter로 직접 적용</small>}
+        <div className="version-field">
+          <label htmlFor={`loader-version-${profile.id}`}>로더 버전 검색 또는 직접 입력</label>
+          <input id={`loader-version-${profile.id}`} value={loaderQuery} disabled={!canEditLoader} onChange={(event) => setLoaderQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyLoaderVersion(loaderQuery); }} inputMode="decimal" placeholder={loadingLoader ? "최신 버전 확인 중..." : profile.modLoaderVersion ? `현재 ${profile.modLoaderVersion}` : "버전 검색"} />
+        </div>
+        <div className="version-choice-list loader-versions" role="listbox" aria-label={`${loaderLabel(profile.modLoader)} 버전 목록`}>
+          {loadingLoader ? <small>로더 버전 불러오는 중...</small> : visibleLoaderVersions.length ? visibleLoaderVersions.map((version) => <button className={version === profile.modLoaderVersion ? "selected" : ""} type="button" key={version} disabled={!canEditLoader} aria-selected={version === profile.modLoaderVersion} onClick={() => applyLoaderVersion(version)}>{version}</button>) : <small>검색 결과 없음 · Enter를 누르면 직접 적용됩니다.</small>}
         </div>
       </>}
+      {profile.modLoader === "vanilla" && <p className="vanilla-loader-note">바닐라는 별도의 로더 버전이 필요하지 않습니다.</p>}
     </section>
   </div>;
 }
@@ -137,10 +145,16 @@ export function VersionBadge({ profile, configuration }: VersionEditorProps) {
   }, [open]);
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
 
-  return <div className={`version-config${open ? " is-open" : ""}${closing ? " is-closing" : ""}${editable ? " is-editable" : ""}${profile.modLoader === "vanilla" ? " is-vanilla" : " has-loader-version"}`} ref={root}>
+  return <div className={`version-config${open ? " is-open" : ""}${closing ? " is-closing" : ""}${editable ? " is-editable" : ""}${profile.modLoader === "vanilla" ? " is-vanilla" : " has-loader-version"}`} ref={root} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) close(); }}>
     <button className="version-badge" type="button" disabled={!editable} aria-expanded={open} onClick={() => { if (open) close(); else { setClosing(false); setOpen(true); } }}>
       Minecraft {profile.minecraftVersion}<span>·</span>{loaderLabel(profile.modLoader)}
     </button>
-    {(open || closing) && <div className="version-config-panel" aria-hidden={!open}><VersionEditor profile={profile} configuration={configuration} /></div>}
+    {(open || closing) && <div className="version-config-panel" role="dialog" aria-label="게임 버전 및 로더 선택" aria-hidden={!open}>
+      <div className="version-config-compact-header">
+        <strong>게임 버전 및 로더</strong>
+        <button type="button" aria-label="버전 선택 닫기" onClick={close}>×</button>
+      </div>
+      <VersionEditor profile={profile} configuration={configuration} />
+    </div>}
   </div>;
 }

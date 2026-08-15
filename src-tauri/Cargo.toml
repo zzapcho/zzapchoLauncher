@@ -1,6 +1,6 @@
 [package]
 name = "zzapcho-launcher"
-version = "0.6.0"
+version = "0.6.1"
 description = "A compact custom Minecraft launcher"
 authors = ["zzapcho"]
 edition = "2021"
@@ -25,3 +25,4 @@ tauri-plugin-clipboard-manager = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"

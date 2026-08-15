@@ -272,20 +272,23 @@ pub(crate) fn safe_segment(value: &str) -> String {
         .collect()
 }
 
-fn content_folder(app: &tauri::AppHandle, profile_id: &str, kind: &str) -> Result<PathBuf, String> {
+pub(crate) fn default_minecraft_dir() -> Result<PathBuf, String> {
+    let app_data = std::env::var_os("APPDATA").ok_or("Windows APPDATA 경로를 찾을 수 없습니다.")?;
+    Ok(PathBuf::from(app_data).join(".minecraft"))
+}
+
+fn content_folder(
+    _app: &tauri::AppHandle,
+    _profile_id: &str,
+    kind: &str,
+) -> Result<PathBuf, String> {
     let folder = match kind {
         "mods" => "mods",
         "resourcePacks" => "resourcepacks",
         "shaders" => "shaderpacks",
         _ => return Err("지원하지 않는 콘텐츠 종류입니다.".into()),
     };
-    let path = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("profiles")
-        .join(safe_segment(profile_id))
-        .join(folder);
+    let path = default_minecraft_dir()?.join(folder);
     fs::create_dir_all(&path).map_err(|error| error.to_string())?;
     Ok(path)
 }
@@ -310,8 +313,7 @@ fn open_content_folder(
 
 #[tauri::command]
 fn open_game_folder() -> Result<String, String> {
-    let app_data = std::env::var("APPDATA").map_err(|error| error.to_string())?;
-    open_in_explorer(&PathBuf::from(app_data).join(".minecraft"))
+    open_in_explorer(&default_minecraft_dir()?)
 }
 
 #[tauri::command]
@@ -512,6 +514,15 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::POSITION
+                        | tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::MAXIMIZED,
+                )
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             open_content_folder,
             open_game_folder,

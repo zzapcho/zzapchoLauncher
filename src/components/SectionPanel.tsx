@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useProfileContent } from "../hooks/useProfileContent";
@@ -78,6 +78,23 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   };
 
   useEffect(() => { setQuery(""); setHasMore(true); void loadProjects("", true); }, [kind, profile.id]);
+
+  useEffect(() => {
+    if (!versionTarget) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setVersionTarget(null);
+    };
+    const closeOutside = (event: PointerEvent) => {
+      const entry = (event.target as Element | null)?.closest<HTMLElement>("[data-version-entry]");
+      if (entry?.dataset.versionEntry !== versionTarget) setVersionTarget(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOutside);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOutside);
+    };
+  }, [versionTarget]);
 
   useEffect(() => {
     const target = loadMoreRef.current;
@@ -186,19 +203,21 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
           const supportedVersions = entry.gameVersions ?? [];
           const versionMismatch = (kind === "resourcePacks" || kind === "shaders") && supportedVersions.length > 0 && !supportedVersions.includes(profile.minecraftVersion);
           const versionHint = supportedVersions.slice(0, 4).join(", ") + (supportedVersions.length > 4 ? "..." : "");
-          return <Fragment key={entry.id}>
+          return <div className="content-entry" data-version-entry={entry.id} key={entry.id} onBlur={(event) => {
+            if (versionTarget === entry.id && !event.currentTarget.contains(event.relatedTarget as Node | null)) setVersionTarget(null);
+          }}>
             <div className={`content-row${entry.enabled ? "" : " is-disabled"}`}>
               {entry.iconUrl ? <img className="content-icon" src={entry.iconUrl} alt="" loading="lazy" decoding="async" /> : <span className={`content-icon content-icon-fallback is-${kind}`} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5m-5 3h5"/></svg></span>}
-              <div className="content-name"><strong>{entry.name}</strong><small><button className="content-version" type="button" disabled={!canChangeVersion} onClick={() => void openVersionPicker(entry)}>{entry.version}</button><span> · {entry.source === "server" ? "서버 관리" : entry.required ? "필수" : "사용자 추가"}</span></small>{versionMismatch && <small className="content-warning">지원 버전 {versionHint} · 현재 {profile.minecraftVersion}와 다를 수 있음</small>}</div>
+              <div className="content-name"><strong>{entry.name}</strong><small><button className="content-version" type="button" disabled={!canChangeVersion} aria-expanded={versionTarget === entry.id} onClick={() => void openVersionPicker(entry)}>{entry.version}</button><span> · {entry.source === "server" ? "서버 관리" : entry.required ? "필수" : "사용자 추가"}</span></small>{versionMismatch && <small className="content-warning">지원 버전 {versionHint} · 현재 버전과 달라도 설치 가능</small>}</div>
               {entry.source === "server" && entry.required ? <span className="managed-badge">필수</span> : <>
                 <button className={`toggle${entry.enabled ? " is-on" : ""}`} type="button" onClick={() => content.toggle(kind, entry.id)} disabled={!canToggle} aria-label={`${entry.name} ${entry.enabled ? "끄기" : "켜기"}`}><span /></button>
                 {entry.source === "server" ? <span className="managed-badge">서버</span> : <button className="remove-content" type="button" onClick={() => content.remove(kind, entry.id)} disabled={!canRemove} aria-label={`${entry.name} 제거`}>×</button>}
               </>}
             </div>
-            {versionTarget === entry.id && <div className="version-picker">
+            {versionTarget === entry.id && <div className="version-picker" role="dialog" aria-label={`${entry.name} 버전 선택`}>
               {versionBusy && !versionOptions.length ? <span>버전 불러오는 중...</span> : versionOptions.length ? versionOptions.map((option) => <button className={option.version === entry.version ? "selected" : ""} type="button" key={option.id} disabled={versionBusy || option.version === entry.version} onClick={() => void changeVersion(entry, option)}><strong>{option.version}</strong><small>{option.fileName}{option.gameVersions.length ? ` · ${option.gameVersions.slice(0, 3).join(", ")}` : ""}</small></button>) : <span>선택 가능한 버전이 없습니다.</span>}
             </div>}
-          </Fragment>;
+          </div>;
         }) : <div className="section-empty">등록된 {title}가 없습니다.</div>}
       </div>
 
@@ -212,7 +231,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
           </form>
         </div>
         <div className="modrinth-section">
-          <div className="modrinth-heading"><strong>Modrinth</strong><span>{query ? "검색 결과" : "인기순"}</span></div>
+          <div className="modrinth-heading"><strong>Modrinth</strong><span>{kind === "mods" ? `${profile.minecraftVersion} 호환` : "모든 게임 버전 설치 가능"}</span></div>
           <div className="modrinth-results">
             {!projects.length && loading ? <div className="inline-loading">불러오는 중...</div> : projects.map((project) => {
               const installed = entries.some((entry) => entry.projectId === project.project_id);
@@ -342,7 +361,7 @@ function SettingsPanel({ profile, configuration, account, onLogout, appUpdate }:
       <input className="memory-slider" type="range" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} />
     </article>
     <article><span>게임 폴더</span><strong>.minecraft</strong><button className="settings-button" type="button" onClick={() => { if (isTauri()) void invoke("open_game_folder"); }}>폴더 열기</button></article>
-    <article className="info-setting"><span>정보</span><strong>zzapcho Launcher 0.6.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article className="info-setting"><span>정보</span><strong>zzapcho Launcher 0.6.1</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <footer>made by zzapcho</footer>
   </div>;
 }
