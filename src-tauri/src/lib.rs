@@ -347,6 +347,149 @@ fn open_game_folder() -> Result<String, String> {
     open_in_explorer(&default_minecraft_dir()?)
 }
 
+fn content_kind_label(kind: &str) -> Result<&'static str, String> {
+    match kind {
+        "mods" => Ok("모드"),
+        "resourcePacks" => Ok("리소스팩"),
+        "shaders" => Ok("셰이더"),
+        _ => Err("지원하지 않는 콘텐츠 종류입니다.".into()),
+    }
+}
+
+fn validate_content_archive_entries(kind: &str, entries: &[String]) -> Result<(), String> {
+    let has_entry = |expected: &str| entries.iter().any(|entry| entry == expected);
+    let has_directory = |directory: &str| {
+        let prefix = format!("{directory}/");
+        entries
+            .iter()
+            .any(|entry| entry == directory || entry.starts_with(&prefix))
+    };
+
+    let valid = match kind {
+        "mods" => {
+            has_entry("fabric.mod.json")
+                || has_entry("quilt.mod.json")
+                || has_entry("mcmod.info")
+                || has_entry("meta-inf/mods.toml")
+                || has_entry("meta-inf/neoforge.mods.toml")
+                || has_directory("optifine")
+        }
+        "resourcePacks" => has_entry("pack.mcmeta"),
+        "shaders" => has_directory("shaders") && !has_entry("pack.mcmeta"),
+        _ => return Err("지원하지 않는 콘텐츠 종류입니다.".into()),
+    };
+
+    if valid {
+        return Ok(());
+    }
+
+    let requirement = match kind {
+        "mods" => "모드 정보가 들어 있는 .jar 파일",
+        "resourcePacks" => "최상위에 pack.mcmeta가 들어 있는 .zip 파일",
+        "shaders" => "최상위에 shaders 폴더가 들어 있는 .zip 파일",
+        _ => unreachable!(),
+    };
+    Err(format!(
+        "이 파일은 올바른 {}이 아닙니다. {}만 추가할 수 있습니다.",
+        content_kind_label(kind)?,
+        requirement
+    ))
+}
+
+fn validate_content_file(kind: &str, source: &Path) -> Result<(), String> {
+    let label = content_kind_label(kind)?;
+    if !source.is_file() {
+        return Err(format!(
+            "폴더는 추가할 수 없습니다. {label} 파일을 선택해 주세요."
+        ));
+    }
+
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_default();
+    let expected_extension = if kind == "mods" { "jar" } else { "zip" };
+    if extension != expected_extension {
+        return Err(format!(
+            "{label}에는 .{expected_extension} 파일만 추가할 수 있습니다."
+        ));
+    }
+
+    let file = fs::File::open(source).map_err(|_| {
+        format!(
+            "{} 파일을 열 수 없습니다.",
+            source.file_name().unwrap_or_default().to_string_lossy()
+        )
+    })?;
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|_| format!("손상되었거나 읽을 수 없는 {label} 파일입니다."))?;
+    let mut entries = Vec::with_capacity(archive.len());
+    for index in 0..archive.len() {
+        let entry = archive
+            .by_index(index)
+            .map_err(|_| format!("손상되었거나 읽을 수 없는 {label} 파일입니다."))?;
+        let Some(path) = entry.enclosed_name() else {
+            continue;
+        };
+        let normalized = path
+            .to_string_lossy()
+            .replace('\\', "/")
+            .trim_start_matches("./")
+            .trim_end_matches('/')
+            .to_ascii_lowercase();
+        if !normalized.is_empty() {
+            entries.push(normalized);
+        }
+    }
+    validate_content_archive_entries(kind, &entries)
+}
+
+#[cfg(test)]
+mod content_file_validation_tests {
+    use super::validate_content_archive_entries;
+
+    fn entries(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    #[test]
+    fn accepts_each_supported_content_structure() {
+        assert!(validate_content_archive_entries(
+            "mods",
+            &entries(&["meta-inf/mods.toml", "example/mod.class"]),
+        )
+        .is_ok());
+        assert!(validate_content_archive_entries(
+            "resourcePacks",
+            &entries(&["pack.mcmeta", "assets/example/texture.png"]),
+        )
+        .is_ok());
+        assert!(validate_content_archive_entries(
+            "shaders",
+            &entries(&["shaders/program/basic.fsh"]),
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn does_not_mix_resource_packs_and_shaders() {
+        let resource_pack = entries(&["pack.mcmeta", "assets/example/texture.png"]);
+        let shader_pack = entries(&["shaders/program/basic.fsh"]);
+
+        assert!(validate_content_archive_entries("shaders", &resource_pack).is_err());
+        assert!(validate_content_archive_entries("resourcePacks", &shader_pack).is_err());
+    }
+
+    #[test]
+    fn rejects_archives_without_expected_metadata() {
+        let unrelated_archive = entries(&["readme.txt", "images/preview.png"]);
+        for kind in ["mods", "resourcePacks", "shaders"] {
+            assert!(validate_content_archive_entries(kind, &unrelated_archive).is_err());
+        }
+    }
+}
+
 #[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
     let parsed = reqwest::Url::parse(&url).map_err(|error| error.to_string())?;
@@ -496,6 +639,7 @@ fn install_content_file(
     source_path: String,
 ) -> Result<String, String> {
     let source = PathBuf::from(source_path);
+    validate_content_file(&kind, &source)?;
     let file_name = source
         .file_name()
         .ok_or("파일 이름을 확인할 수 없습니다.")?;
@@ -574,6 +718,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(

@@ -2274,7 +2274,7 @@ a:focus-visible {
   bottom: 48px;
 }
 
-@media (max-width: 700px), (max-height: 700px) {
+@media (max-width: 700px), (max-height: 620px) {
   .version-config-panel,
   .version-config.is-vanilla .version-config-panel {
     position: fixed;
@@ -2375,4 +2375,750 @@ a:focus-visible {
 @keyframes compact-version-dialog-in {
   from { opacity: 0; transform: translateY(8px) scale(.985); }
   to { opacity: 1; transform: none; }
+}
+
+/* Collapsible, readable version controls shared by Home and Settings. */
+.accordion-chevron {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  color: rgba(255,255,255,.58);
+  transform: rotate(0deg);
+  transform-origin: center;
+  transition: color .18s ease, transform .34s cubic-bezier(.22, 1, .36, 1);
+}
+
+.accordion-chevron.is-open {
+  color: var(--accent);
+  transform: rotate(90deg);
+}
+
+.accordion-chevron svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.version-badge {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 7px;
+}
+
+.version-badge .version-badge-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  overflow: hidden;
+  color: rgba(255,255,255,.94);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-badge .version-badge-copy i {
+  color: var(--accent);
+  font-style: normal;
+}
+
+.version-config-panel,
+.version-config.is-vanilla .version-config-panel {
+  display: flex;
+  height: auto;
+  max-height: min(560px, calc(100dvh - 78px));
+  padding: 10px;
+  flex-direction: column;
+  gap: 9px;
+  overflow: hidden;
+}
+
+.version-config-compact-header {
+  display: flex;
+  min-height: 46px;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px 0 5px;
+}
+
+.version-config-compact-header > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.version-config-compact-header strong {
+  overflow: hidden;
+  color: rgba(255,255,255,.97);
+  font-size: 15px;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-config-compact-header small {
+  overflow: hidden;
+  color: rgba(255,255,255,.61);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-config-compact-header button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  padding: 0 0 2px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 11px;
+  color: rgba(255,255,255,.88);
+  background: rgba(255,255,255,.065);
+  cursor: pointer;
+  font-size: 21px;
+  line-height: 1;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.version-config-compact-header button:hover {
+  border-color: rgba(255,255,255,.26);
+  background: rgba(255,255,255,.11);
+  transform: scale(1.035);
+}
+
+.version-config-panel > .version-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.version-editor,
+.version-config .version-editor,
+.version-setting .version-editor {
+  display: flex;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 1px 2px 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  touch-action: pan-y;
+}
+
+.version-editor > .version-editor-card,
+.version-setting .version-editor-card {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  flex: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 13px;
+  background: rgba(255,255,255,.038);
+  opacity: 1;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+
+.version-editor > .version-editor-card.is-expanded {
+  border-color: color-mix(in srgb, var(--accent) 33%, rgba(255,255,255,.11));
+  background: rgba(255,255,255,.052);
+  box-shadow: inset 0 1px rgba(255,255,255,.025);
+}
+
+.version-editor > .version-editor-card.is-locked {
+  opacity: 1;
+}
+
+.version-editor-toggle {
+  display: grid;
+  width: 100%;
+  min-height: 54px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border: 0;
+  color: #fff;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background .18s ease;
+}
+
+.version-editor-toggle:hover {
+  background: rgba(255,255,255,.045);
+}
+
+.version-editor-toggle-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.version-editor-toggle-copy > span {
+  color: rgba(255,255,255,.64);
+  font-size: 11px !important;
+  font-weight: 720;
+}
+
+.version-editor-toggle-copy strong {
+  overflow: hidden;
+  color: rgba(255,255,255,.96);
+  font-size: 13px !important;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-editor-collapse,
+.version-setting-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: grid-template-rows .32s cubic-bezier(.22, 1, .36, 1), opacity .18s ease, visibility 0s linear .32s;
+}
+
+.version-editor-card.is-expanded .version-editor-collapse,
+.version-setting.is-expanded .version-setting-collapse {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: grid-template-rows .36s cubic-bezier(.22, 1, .36, 1), opacity .2s ease .04s, visibility 0s;
+}
+
+.version-editor-collapse-inner,
+.version-setting-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.version-editor-card-body {
+  display: grid;
+  gap: 9px;
+  padding: 0 11px 11px 38px;
+}
+
+.version-field label {
+  color: rgba(255,255,255,.68);
+  font-size: 11px !important;
+  font-weight: 720;
+}
+
+.version-editor input {
+  height: 38px;
+  padding: 0 11px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.version-choice-list,
+.version-config .version-choice-list,
+.version-config.is-vanilla .version-choice-list,
+.version-config.has-loader-version .loader-versions,
+.version-setting .version-choice-list {
+  display: grid;
+  min-height: 0;
+  max-height: 210px;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  align-content: start;
+  gap: 6px;
+  padding: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.loader-choice-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.version-choice-list button,
+.loader-choice-list button,
+.version-config .loader-choice-list button,
+.version-config .version-choice-list button {
+  min-height: 36px;
+  padding: 7px 9px;
+  color: rgba(255,255,255,.88);
+  font-size: 12px !important;
+}
+
+.loader-choice-list button,
+.version-config .loader-choice-list button {
+  min-height: 50px;
+}
+
+.version-choice-list small,
+.loader-choice-list button small,
+.vanilla-loader-note {
+  color: rgba(255,255,255,.64);
+  font-size: 11px !important;
+  line-height: 1.45;
+}
+
+.settings-grid article.version-setting {
+  gap: 0 !important;
+  padding: 0;
+  overflow: hidden;
+}
+
+.version-setting-toggle {
+  display: grid;
+  width: 100%;
+  min-height: 62px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 15px;
+  border: 0;
+  color: #fff;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background .18s ease;
+}
+
+.version-setting-toggle:hover {
+  background: rgba(255,255,255,.045);
+}
+
+.version-setting-toggle-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.version-setting-toggle-copy > span {
+  color: rgba(255,255,255,.7);
+  font-size: 12px !important;
+  font-weight: 730;
+}
+
+.version-setting-toggle-copy strong {
+  overflow: hidden;
+  color: rgba(255,255,255,.96);
+  font-size: 13px !important;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-setting .version-editor {
+  margin: 0;
+  padding: 0 13px 13px;
+  overflow: visible;
+}
+
+@media (max-width: 700px), (max-height: 620px) {
+  .version-config-panel,
+  .version-config.is-vanilla .version-config-panel {
+    inset: var(--viewport-gutter);
+    height: auto;
+    max-height: none;
+    padding: 10px;
+  }
+
+  .version-config-compact-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    min-height: 48px;
+    padding: 0 3px 0 6px;
+    border-radius: 12px;
+    background: rgba(7,11,8,.98);
+  }
+
+  .version-config-panel > .version-editor,
+  .version-config .version-editor {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    padding-bottom: 8px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+
+  .version-config .version-choice-list,
+  .version-config.is-vanilla .version-choice-list,
+  .version-config.has-loader-version .loader-versions {
+    max-height: none;
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    overflow: visible;
+  }
+
+  .version-config .version-editor-card-body {
+    padding-left: 11px;
+  }
+}
+
+@media (max-width: 440px) {
+  .version-config-compact-header small {
+    font-size: 10px;
+  }
+
+  .version-editor-card-body {
+    padding-left: 10px;
+  }
+
+  .version-choice-list,
+  .version-config .version-choice-list,
+  .version-setting .version-choice-list,
+  .loader-choice-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordion-chevron,
+  .version-editor-collapse,
+  .version-setting-collapse {
+    transition-duration: .01ms;
+  }
+}
+
+/* Safe local content import feedback. */
+.content-file-input {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.content-import-message {
+  padding: 9px 11px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 11px;
+  color: rgba(255,255,255,.86);
+  background: rgba(255,255,255,.055);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  animation: content-import-message-in .2s cubic-bezier(.22, 1, .36, 1);
+}
+
+.content-import-message.is-success {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  color: color-mix(in srgb, var(--accent) 75%, white);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.content-import-message.is-error {
+  border-color: rgba(255,126,135,.32);
+  color: #ffb2b8;
+  background: rgba(120,28,36,.18);
+}
+
+@keyframes content-import-message-in {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+
+/* Final overflow-safe accordion layout. */
+.version-badge {
+  position: relative;
+  display: flex;
+  padding-right: 14px;
+  padding-left: 14px;
+}
+
+.version-badge.has-chevron {
+  padding-right: 38px;
+  padding-left: 38px;
+}
+
+.version-badge .version-badge-copy {
+  width: 100%;
+}
+
+.version-badge-chevron {
+  position: absolute;
+  right: 12px;
+  color: rgba(255,255,255,.58);
+}
+
+.version-badge-chevron.is-open {
+  color: var(--accent);
+}
+
+.version-editor-toggle,
+.version-setting-toggle {
+  grid-template-columns: minmax(0, 1fr) 18px;
+}
+
+.version-editor-toggle.is-static,
+.version-setting-toggle.is-static {
+  grid-template-columns: minmax(0, 1fr);
+  cursor: default;
+}
+
+.version-editor-toggle:disabled,
+.version-setting-toggle:disabled {
+  color: inherit;
+  opacity: 1;
+}
+
+.version-editor-toggle:hover:not(:disabled),
+.version-setting-toggle:hover:not(:disabled) {
+  background: rgba(255,255,255,.045);
+}
+
+.version-editor-toggle:disabled:hover,
+.version-setting-toggle:disabled:hover {
+  background: transparent;
+}
+
+.version-config-panel,
+.version-config.is-vanilla .version-config-panel {
+  height: min(344px, calc(100dvh - 120px));
+  max-height: min(344px, calc(100dvh - 120px));
+}
+
+.version-config-panel > .version-editor {
+  height: 100%;
+  flex: 1 1 0;
+}
+
+.settings-grid {
+  grid-auto-rows: max-content;
+  align-content: start;
+}
+
+.settings-grid article.version-setting {
+  height: auto;
+  min-height: 62px;
+  align-self: start;
+}
+
+.version-setting-collapse {
+  display: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.version-setting.is-expanded .version-setting-collapse {
+  display: block;
+  animation: settings-version-expand .3s cubic-bezier(.22, 1, .36, 1);
+}
+
+.version-setting-collapse-inner {
+  min-width: 0;
+  overflow: visible;
+}
+
+.version-setting .version-editor {
+  max-width: 100%;
+  overflow: visible;
+}
+
+.version-setting .version-editor-card {
+  max-width: 100%;
+}
+
+.version-editor-collapse {
+  display: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.version-editor-card.is-expanded .version-editor-collapse {
+  display: block;
+  animation: version-card-expand .3s cubic-bezier(.22, 1, .36, 1);
+}
+
+.version-editor-collapse-inner {
+  overflow: visible;
+}
+
+@keyframes settings-version-expand {
+  from { opacity: 0; transform: translateY(-7px) scale(.992); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes version-card-expand {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: none; }
+}
+
+@container (max-width: 560px) {
+  .java-version-choice {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .java-path-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .java-path-row input {
+    grid-column: 1 / -1;
+  }
+
+  .java-path-row button {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 700px), (max-height: 620px) {
+  .version-config-panel,
+  .version-config.is-vanilla .version-config-panel {
+    position: fixed;
+    inset: var(--viewport-gutter);
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    overflow: hidden;
+    transform: none;
+  }
+
+  .version-config.is-closing .version-config-panel {
+    transform: scale(.985);
+  }
+
+  .version-config-panel > .version-editor,
+  .version-config .version-editor {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+    touch-action: pan-y;
+  }
+
+  .version-config .version-choice-list,
+  .version-config.is-vanilla .version-choice-list,
+  .version-config.has-loader-version .loader-versions {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 480px) {
+  .version-setting-toggle {
+    min-height: 58px;
+    padding: 9px 11px;
+  }
+
+  .version-setting .version-editor {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  .version-setting .version-editor-card-body {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .version-setting.is-expanded .version-setting-collapse,
+  .version-editor-card.is-expanded .version-editor-collapse {
+    animation: none;
+  }
+}
+
+/* Home version dialog: one scroll owner per layout and no sidebar clipping. */
+.launcher-shell.is-home {
+  contain: none;
+  transform: none;
+}
+
+.launcher-shell.is-home .version-config.is-open,
+.launcher-shell.is-home .version-config.is-closing {
+  z-index: 200;
+}
+
+.version-config-panel,
+.version-config.is-vanilla .version-config-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.version-config .version-editor {
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-block: 8px;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
+}
+
+.version-config .version-editor-card,
+.version-config .version-editor-card-body,
+.version-config .version-choice-list,
+.version-config .loader-choice-list {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.version-config .version-choice-list,
+.version-config.is-vanilla .version-choice-list,
+.version-config.has-loader-version .loader-versions {
+  max-height: none;
+  overflow: visible;
+}
+
+@media (max-width: 700px), (max-height: 620px) {
+  .version-config-panel,
+  .version-config.is-vanilla .version-config-panel {
+    z-index: 300;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scroll-padding-top: 58px;
+    scrollbar-gutter: stable;
+    touch-action: pan-y;
+  }
+
+  .version-config-compact-header {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+  }
+
+  .version-config-panel > .version-editor,
+  .version-config .version-editor {
+    display: flex;
+    height: auto;
+    min-height: auto;
+    flex: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .version-config .version-editor-card-body {
+    width: 100%;
+  }
 }

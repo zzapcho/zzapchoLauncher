@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useProfileContent } from "../hooks/useProfileContent";
 import { useUserSettings } from "../hooks/useUserSettings";
 import { createUserContent } from "../services/contentService";
@@ -13,7 +14,7 @@ import type { LauncherAccount } from "../types/auth";
 import type { AppUpdateState } from "../hooks/useAppUpdate";
 import { discoverJavaRuntimes, downloadJavaRuntime, recommendedJavaMajor, type JavaRuntimeInfo } from "../services/javaService";
 import type { ProfileConfiguration } from "../hooks/useProfileConfiguration";
-import { VersionEditor } from "./VersionBadge";
+import { loaderLabel, VersionEditor } from "./VersionBadge";
 
 interface SectionPanelProps {
   profile: LauncherProfile;
@@ -25,6 +26,17 @@ interface SectionPanelProps {
 }
 
 const isTauri = () => "__TAURI_INTERNALS__" in window;
+
+const contentImportRules: Record<ContentKind, { label: string; extensions: string[]; hint: string }> = {
+  mods: { label: "Minecraft 모드", extensions: ["jar"], hint: "모드 .jar 파일만 놓아주세요" },
+  resourcePacks: { label: "Minecraft 리소스팩", extensions: ["zip"], hint: "리소스팩 .zip 파일만 놓아주세요" },
+  shaders: { label: "Minecraft 셰이더", extensions: ["zip"], hint: "셰이더 .zip 파일만 놓아주세요" },
+};
+
+function hasAllowedContentExtension(path: string, kind: ContentKind): boolean {
+  const extension = path.split(/[\\/]/).pop()?.split(".").pop()?.toLowerCase() ?? "";
+  return contentImportRules[kind].extensions.includes(extension);
+}
 
 const sectionCopy = {
   mods: { title: "모드" },
@@ -43,15 +55,28 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   const [installing, setInstalling] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [importMessage, setImportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [versionTarget, setVersionTarget] = useState<string | null>(null);
   const [versionOptions, setVersionOptions] = useState<ModrinthVersionOption[]>([]);
   const [versionBusy, setVersionBusy] = useState(false);
   const managerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
   const editable = profile.editableFields[kind];
   const entries = content.state[kind];
   const title = sectionCopy[kind === "resourcePacks" ? "resource-packs" : kind].title;
+  const importRule = contentImportRules[kind];
+
+  useEffect(() => {
+    setImportMessage(null);
+  }, [kind, profile.id]);
+
+  useEffect(() => {
+    if (!importMessage) return;
+    const timeout = window.setTimeout(() => setImportMessage(null), 5200);
+    return () => window.clearTimeout(timeout);
+  }, [importMessage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,12 +134,35 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
 
   const installPaths = async (paths: string[]) => {
     if (!editable) return;
-    for (const path of paths) {
+    const uniquePaths = [...new Set(paths.filter(Boolean))];
+    const acceptedPaths = uniquePaths.filter((path) => hasAllowedContentExtension(path, kind));
+    const rejectedNames = uniquePaths
+      .filter((path) => !hasAllowedContentExtension(path, kind))
+      .map((path) => path.split(/[\\/]/).pop() ?? path);
+    const failures: string[] = [];
+    let installedCount = 0;
+
+    for (const path of acceptedPaths) {
       const fileName = path.split(/[\\/]/).pop() ?? path;
       try {
         if (isTauri()) await invoke("install_content_file", { profileId: profile.id, kind, sourcePath: path });
         content.add(kind, createUserContent(fileName.replace(/\.(jar|zip)$/i, ""), fileName));
-      } catch (error) { console.error(error); }
+        installedCount += 1;
+      } catch (error) {
+        failures.push(`${fileName}: ${String(error)}`);
+        console.warn("콘텐츠 파일 추가 거부", error);
+      }
+    }
+
+    if (failures.length) {
+      const prefix = installedCount ? `${installedCount}개는 추가했습니다. ` : "";
+      setImportMessage({ tone: "error", text: `${prefix}${failures[0]}${failures.length > 1 ? ` 외 ${failures.length - 1}개` : ""}` });
+    } else if (rejectedNames.length) {
+      const expected = importRule.extensions.map((extension) => `.${extension}`).join(", ");
+      const prefix = installedCount ? `${installedCount}개는 추가했습니다. ` : "";
+      setImportMessage({ tone: "error", text: `${prefix}${title}에는 ${expected} 파일만 추가할 수 있습니다. (${rejectedNames.slice(0, 2).join(", ")}${rejectedNames.length > 2 ? " 외" : ""})` });
+    } else if (installedCount) {
+      setImportMessage({ tone: "success", text: `${title} ${installedCount}개를 추가했습니다.` });
     }
   };
 
@@ -153,8 +201,25 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     };
   }, [editable, kind, profile.id]);
 
-  const openFolder = () => {
-    if (isTauri()) void invoke("open_content_folder", { profileId: profile.id, kind });
+  const chooseContentFiles = async () => {
+    if (!editable) return;
+    if (!isTauri()) {
+      fileInputRef.current?.click();
+      return;
+    }
+    try {
+      const selected = await open({
+        multiple: true,
+        directory: false,
+        title: `${title} 파일 추가`,
+        filters: [{ name: importRule.label, extensions: importRule.extensions }],
+      });
+      if (!selected) return;
+      await installPaths(Array.isArray(selected) ? selected : [selected]);
+    } catch (error) {
+      console.warn("콘텐츠 파일 선택 실패", error);
+      setImportMessage({ tone: "error", text: "파일 선택창을 열지 못했습니다. 잠시 후 다시 시도해 주세요." });
+    }
   };
 
   const installProject = async (project: ModrinthProject) => {
@@ -216,7 +281,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
 
   return (
     <div className="content-manager" ref={managerRef}>
-      {dragging && <div className="drop-overlay" aria-hidden="true"><span>여기에 놓아 추가</span></div>}
+      {dragging && <div className="drop-overlay" aria-hidden="true"><span>{importRule.hint}</span></div>}
       <section className="content-installed-pane" aria-label={`설치된 ${title}`}>
         <div className="content-list">
           {entries.length ? entries.map((entry) => {
@@ -248,12 +313,18 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
       <section className={`content-available-pane${editable ? "" : " is-locked"}`} aria-label={`설치 가능한 ${title}`}>
         {editable ? <>
           <div className="content-toolbar">
-            <button className="section-action" type="button" onClick={openFolder}>폴더에서 추가</button>
+            <input className="content-file-input" ref={fileInputRef} type="file" multiple accept={importRule.extensions.map((extension) => `.${extension}`).join(",")} tabIndex={-1} aria-hidden="true" onChange={(event) => {
+              const files = Array.from(event.currentTarget.files ?? []) as Array<File & { path?: string }>;
+              void installPaths(files.map((file) => file.path ?? file.name));
+              event.currentTarget.value = "";
+            }} />
+            <button className="section-action" type="button" onClick={() => void chooseContentFiles()}>폴더에서 추가</button>
             <form onSubmit={(event) => { event.preventDefault(); setHasMore(true); void loadProjects(query, true); }}>
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Modrinth 검색" aria-label="Modrinth 검색" />
               <button type="submit">검색</button>
             </form>
           </div>
+          {importMessage && <div className={`content-import-message is-${importMessage.tone}`} role="status">{importMessage.text}</div>}
           <div className="modrinth-section">
             <div className="modrinth-heading"><strong>Modrinth</strong><span>{kind === "mods" ? `${profile.minecraftVersion} 호환` : "모든 게임 버전 설치 가능"}</span></div>
             <div className="modrinth-results">
@@ -364,6 +435,9 @@ function JavaSetting({ profile }: { profile: LauncherProfile }) {
 function SettingsPanel({ profile, configuration, account, onLogout, appUpdate }: { profile: LauncherProfile; configuration: ProfileConfiguration; account: LauncherAccount; onLogout: () => Promise<void>; appUpdate: AppUpdateState }) {
   const { settings, setMemoryGb } = useUserSettings();
   const [editingMemory, setEditingMemory] = useState(false);
+  const [versionSettingsOpen, setVersionSettingsOpen] = useState(false);
+  const versionSettingsEditable = profile.editableFields.minecraftVersion || profile.editableFields.modLoader;
+  useEffect(() => setVersionSettingsOpen(false), [profile.id]);
   return <div className="settings-grid">
     <article className="account-setting">
       <div className="skin-head" style={account.skinUrl ? { backgroundImage: `url("${account.skinUrl}")` } : undefined}>{!account.skinUrl && account.name.slice(0, 1).toUpperCase()}</div>
@@ -376,17 +450,22 @@ function SettingsPanel({ profile, configuration, account, onLogout, appUpdate }:
       <small>{appUpdate.error || appUpdate.notes || "GitHub에서 새 버전을 자동으로 확인합니다."}</small>
       <button className="settings-button update-button" type="button" disabled={appUpdate.checking} onClick={() => void (appUpdate.available ? appUpdate.install() : appUpdate.checkNow())}>{appUpdate.available ? "업데이트" : appUpdate.checking ? "확인 중..." : "업데이트 확인"}</button>
     </article>
-    {(profile.editableFields.minecraftVersion || profile.editableFields.modLoader) && <article className="version-setting">
-      <span>게임 버전 및 로더</span>
-      <VersionEditor profile={profile} configuration={configuration} />
-    </article>}
+    <article className={`version-setting${versionSettingsOpen ? " is-expanded" : ""}${versionSettingsEditable ? "" : " is-locked"}`}>
+      <button className={`version-setting-toggle${versionSettingsEditable ? "" : " is-static"}`} type="button" disabled={!versionSettingsEditable} aria-expanded={versionSettingsEditable ? versionSettingsOpen : undefined} aria-controls={versionSettingsEditable ? `settings-version-${profile.id}` : undefined} onClick={() => setVersionSettingsOpen((current) => !current)}>
+        <span className="version-setting-toggle-copy"><span>게임 버전 및 로더</span><strong>Minecraft {profile.minecraftVersion} · {loaderLabel(profile.modLoader)}</strong></span>
+        {versionSettingsEditable && <span className={`accordion-chevron${versionSettingsOpen ? " is-open" : ""}`} aria-hidden="true"><svg viewBox="0 0 16 16"><path d="m6 3 5 5-5 5" /></svg></span>}
+      </button>
+      {versionSettingsEditable && <div className="version-setting-collapse" id={`settings-version-${profile.id}`} aria-hidden={!versionSettingsOpen}>
+        <div className="version-setting-collapse-inner"><VersionEditor profile={profile} configuration={configuration} initialSection="minecraft" /></div>
+      </div>}
+    </article>
     <JavaSetting profile={profile} />
     <article className="memory-setting">
       <div><span>게임 메모리</span>{editingMemory ? <input autoFocus type="number" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} onBlur={() => setEditingMemory(false)} onKeyDown={(event) => event.key === "Enter" && setEditingMemory(false)} /> : <button type="button" onClick={() => setEditingMemory(true)}>{settings.memoryGb.toFixed(1)} GB</button>}</div>
       <input className="memory-slider" type="range" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} />
     </article>
     <article><span>게임 폴더</span><strong>.minecraft</strong><button className="settings-button" type="button" onClick={() => { if (isTauri()) void invoke("open_game_folder"); }}>폴더 열기</button></article>
-    <article className="info-setting"><span>정보</span><strong>zzapcho Launcher 0.7.0</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article className="info-setting"><span>정보</span><strong>zzapcho Launcher 0.7.1</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <footer>made by zzapcho</footer>
   </div>;
 }
