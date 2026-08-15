@@ -16,6 +16,34 @@ mod discord_presence;
 const MICROSOFT_CLIENT_ID: &str = "00000000402b5328";
 const MICROSOFT_SCOPE: &str = "XboxLive.signin offline_access";
 
+#[cfg(windows)]
+fn refresh_shell_icon_cache_after_update(app: &tauri::AppHandle) {
+    use windows_sys::Win32::UI::Shell::{
+        SHChangeNotify, SHCNE_ASSOCCHANGED, SHCNF_FLUSHNOWAIT, SHCNF_IDLIST,
+    };
+
+    let Ok(app_data) = app.path().app_data_dir() else {
+        return;
+    };
+    let marker = app_data.join("shell-icon-version");
+    let version = env!("CARGO_PKG_VERSION");
+    if fs::read_to_string(&marker).ok().as_deref() == Some(version) {
+        return;
+    }
+
+    unsafe {
+        SHChangeNotify(
+            SHCNE_ASSOCCHANGED as i32,
+            SHCNF_IDLIST | SHCNF_FLUSHNOWAIT,
+            std::ptr::null(),
+            std::ptr::null(),
+        );
+    }
+    if fs::create_dir_all(&app_data).is_ok() {
+        let _ = fs::write(marker, version);
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
 struct DeviceCode {
@@ -477,6 +505,34 @@ fn install_content_file(
 }
 
 #[tauri::command]
+fn set_content_enabled(
+    app: tauri::AppHandle,
+    profile_id: String,
+    kind: String,
+    file_name: String,
+    enabled: bool,
+) -> Result<(), String> {
+    let file_name = Path::new(&file_name)
+        .file_name()
+        .ok_or("콘텐츠 파일 이름을 확인할 수 없습니다.")?;
+    let active = content_folder(&app, &profile_id, &kind)?.join(file_name);
+    let disabled = PathBuf::from(format!("{}.disabled", active.display()));
+    let (source, destination) = if enabled {
+        (&disabled, &active)
+    } else {
+        (&active, &disabled)
+    };
+
+    if destination.exists() && source.exists() {
+        return Err("활성 파일과 비활성 파일이 동시에 존재합니다.".into());
+    }
+    if destination.exists() || !source.exists() {
+        return Ok(());
+    }
+    fs::rename(source, destination).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn download_content_file(
     app: tauri::AppHandle,
     profile_id: String,
@@ -529,6 +585,11 @@ pub fn run() {
                 )
                 .build(),
         )
+        .setup(|app| {
+            #[cfg(windows)]
+            refresh_shell_icon_cache_after_update(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             open_content_folder,
             open_game_folder,
@@ -540,6 +601,7 @@ pub fn run() {
             load_auth_secret,
             delete_auth_secret,
             install_content_file,
+            set_content_enabled,
             download_content_file,
             java_runtime::ensure_java_runtime,
             java_runtime::discover_java_runtimes,

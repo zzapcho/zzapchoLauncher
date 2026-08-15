@@ -6,6 +6,7 @@ export interface ContentEntry {
   version: string;
   required: boolean;
   url: string;
+  fileName?: string;
   sha256?: string;
 }
 

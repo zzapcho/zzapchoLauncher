@@ -41,6 +41,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [versionTarget, setVersionTarget] = useState<string | null>(null);
   const [versionOptions, setVersionOptions] = useState<ModrinthVersionOption[]>([]);
@@ -193,58 +194,82 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     else window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const toggleEntry = async (entry: ManagedContentEntry) => {
+    if (!editable || entry.required || toggling) return;
+    setToggling(entry.id);
+    try {
+      if (isTauri() && entry.fileName) {
+        await invoke("set_content_enabled", {
+          profileId: profile.id,
+          kind,
+          fileName: entry.fileName,
+          enabled: !entry.enabled,
+        });
+      }
+      content.toggle(kind, entry.id);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setToggling(null);
+    }
+  };
+
   return (
     <div className="content-manager" ref={managerRef}>
-      <div className="content-list">
-        {entries.length ? entries.map((entry) => {
-          const canChangeVersion = editable && !entry.required && entry.source === "user" && Boolean(entry.projectId);
-          const canToggle = editable && !entry.required;
-          const canRemove = editable && !entry.required && entry.source === "user";
-          const supportedVersions = entry.gameVersions ?? [];
-          const versionMismatch = (kind === "resourcePacks" || kind === "shaders") && supportedVersions.length > 0 && !supportedVersions.includes(profile.minecraftVersion);
-          const versionHint = supportedVersions.slice(0, 4).join(", ") + (supportedVersions.length > 4 ? "..." : "");
-          return <div className="content-entry" data-version-entry={entry.id} key={entry.id} onBlur={(event) => {
-            if (versionTarget === entry.id && !event.currentTarget.contains(event.relatedTarget as Node | null)) setVersionTarget(null);
-          }}>
-            <div className={`content-row${entry.enabled ? "" : " is-disabled"}`}>
-              {entry.iconUrl ? <img className="content-icon" src={entry.iconUrl} alt="" loading="lazy" decoding="async" /> : <span className={`content-icon content-icon-fallback is-${kind}`} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5m-5 3h5"/></svg></span>}
-              <div className="content-name"><strong>{entry.name}</strong><small><button className="content-version" type="button" disabled={!canChangeVersion} aria-expanded={versionTarget === entry.id} onClick={() => void openVersionPicker(entry)}>{entry.version}</button><span> · {entry.source === "server" ? "서버 관리" : entry.required ? "필수" : "사용자 추가"}</span></small>{versionMismatch && <small className="content-warning">지원 버전 {versionHint} · 현재 버전과 달라도 설치 가능</small>}</div>
-              {entry.source === "server" && entry.required ? <span className="managed-badge">필수</span> : <>
-                <button className={`toggle${entry.enabled ? " is-on" : ""}`} type="button" onClick={() => content.toggle(kind, entry.id)} disabled={!canToggle} aria-label={`${entry.name} ${entry.enabled ? "끄기" : "켜기"}`}><span /></button>
-                {entry.source === "server" ? <span className="managed-badge">서버</span> : <button className="remove-content" type="button" onClick={() => content.remove(kind, entry.id)} disabled={!canRemove} aria-label={`${entry.name} 제거`}>×</button>}
-              </>}
-            </div>
-            {versionTarget === entry.id && <div className="version-picker" role="dialog" aria-label={`${entry.name} 버전 선택`}>
-              {versionBusy && !versionOptions.length ? <span>버전 불러오는 중...</span> : versionOptions.length ? versionOptions.map((option) => <button className={option.version === entry.version ? "selected" : ""} type="button" key={option.id} disabled={versionBusy || option.version === entry.version} onClick={() => void changeVersion(entry, option)}><strong>{option.version}</strong><small>{option.fileName}{option.gameVersions.length ? ` · ${option.gameVersions.slice(0, 3).join(", ")}` : ""}</small></button>) : <span>선택 가능한 버전이 없습니다.</span>}
-            </div>}
-          </div>;
-        }) : <div className="section-empty">등록된 {title}가 없습니다.</div>}
-      </div>
+      {dragging && <div className="drop-overlay" aria-hidden="true"><span>여기에 놓아 추가</span></div>}
+      <section className="content-installed-pane" aria-label={`설치된 ${title}`}>
+        <div className="content-list">
+          {entries.length ? entries.map((entry) => {
+            const canChangeVersion = editable && !entry.required && entry.source === "user" && Boolean(entry.projectId);
+            const canToggle = editable && !entry.required;
+            const canRemove = editable && !entry.required && entry.source === "user";
+            const supportedVersions = entry.gameVersions ?? [];
+            const versionMismatch = (kind === "resourcePacks" || kind === "shaders") && supportedVersions.length > 0 && !supportedVersions.includes(profile.minecraftVersion);
+            const versionHint = supportedVersions.slice(0, 4).join(", ") + (supportedVersions.length > 4 ? "..." : "");
+            return <div className="content-entry" data-version-entry={entry.id} key={entry.id} onBlur={(event) => {
+              if (versionTarget === entry.id && !event.currentTarget.contains(event.relatedTarget as Node | null)) setVersionTarget(null);
+            }}>
+              <div className={`content-row${entry.enabled ? "" : " is-disabled"}`}>
+                {entry.iconUrl ? <img className="content-icon" src={entry.iconUrl} alt="" loading="lazy" decoding="async" /> : <span className={`content-icon content-icon-fallback is-${kind}`} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5m-5 3h5"/></svg></span>}
+                <div className="content-name"><strong>{entry.name}</strong><small><button className="content-version" type="button" disabled={!canChangeVersion} aria-expanded={versionTarget === entry.id} onClick={() => void openVersionPicker(entry)}>{entry.version}</button><span> · {entry.source === "server" ? "서버 관리" : entry.required ? "필수" : "사용자 추가"}</span></small>{versionMismatch && <small className="content-warning">지원 버전 {versionHint} · 현재 버전과 달라도 설치 가능</small>}</div>
+                {entry.source === "server" && entry.required ? <span className="managed-badge">필수</span> : <>
+                  <button className={`toggle${entry.enabled ? " is-on" : ""}`} type="button" onClick={() => void toggleEntry(entry)} disabled={!canToggle || toggling !== null} aria-label={`${entry.name} ${entry.enabled ? "끄기" : "켜기"}`} aria-pressed={entry.enabled}><span /></button>
+                  {entry.source === "server" ? <span className="managed-badge">서버</span> : <button className="remove-content" type="button" onClick={() => content.remove(kind, entry.id)} disabled={!canRemove} aria-label={`${entry.name} 제거`}>×</button>}
+                </>}
+              </div>
+              {versionTarget === entry.id && <div className="version-picker" role="dialog" aria-label={`${entry.name} 버전 선택`}>
+                {versionBusy && !versionOptions.length ? <span>버전 불러오는 중...</span> : versionOptions.length ? versionOptions.map((option) => <button className={option.version === entry.version ? "selected" : ""} type="button" key={option.id} disabled={versionBusy || option.version === entry.version} onClick={() => void changeVersion(entry, option)}><strong>{option.version}</strong><small>{option.fileName}{option.gameVersions.length ? ` · ${option.gameVersions.slice(0, 3).join(", ")}` : ""}</small></button>) : <span>선택 가능한 버전이 없습니다.</span>}
+              </div>}
+            </div>;
+          }) : <div className="section-empty">등록된 {title}가 없습니다.</div>}
+        </div>
+      </section>
 
-      {editable ? <>
-        {dragging && <div className="drop-overlay" aria-hidden="true"><span>여기에 놓아 추가</span></div>}
-        <div className="content-toolbar">
-          <button className="section-action" type="button" onClick={openFolder}>폴더에서 추가</button>
-          <form onSubmit={(event) => { event.preventDefault(); setHasMore(true); void loadProjects(query, true); }}>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Modrinth 검색" aria-label="Modrinth 검색" />
-            <button type="submit">검색</button>
-          </form>
-        </div>
-        <div className="modrinth-section">
-          <div className="modrinth-heading"><strong>Modrinth</strong><span>{kind === "mods" ? `${profile.minecraftVersion} 호환` : "모든 게임 버전 설치 가능"}</span></div>
-          <div className="modrinth-results">
-            {!projects.length && loading ? <div className="inline-loading">불러오는 중...</div> : projects.map((project) => {
-              const installed = entries.some((entry) => entry.projectId === project.project_id);
-              return <article key={project.project_id}>
-                {project.icon_url ? <img src={project.icon_url} alt="" loading="lazy" decoding="async" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" /> : <span className="project-placeholder" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" />}
-                <div><strong>{project.title}</strong><small>{project.author} · {Intl.NumberFormat("ko-KR", { notation: "compact" }).format(project.downloads)} 다운로드</small></div>
-                <button type="button" disabled={installed || installing === project.project_id} onClick={() => void installProject(project)}>{installed ? "설치됨" : installing === project.project_id ? "설치 중" : "설치"}</button>
-              </article>;
-            })}
-            <div className="load-more-sentinel" ref={loadMoreRef}>{loading && projects.length ? "더 불러오는 중..." : hasMore ? "" : projects.length ? "모두 불러왔습니다." : ""}</div>
+      <section className={`content-available-pane${editable ? "" : " is-locked"}`} aria-label={`설치 가능한 ${title}`}>
+        {editable ? <>
+          <div className="content-toolbar">
+            <button className="section-action" type="button" onClick={openFolder}>폴더에서 추가</button>
+            <form onSubmit={(event) => { event.preventDefault(); setHasMore(true); void loadProjects(query, true); }}>
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Modrinth 검색" aria-label="Modrinth 검색" />
+              <button type="submit">검색</button>
+            </form>
           </div>
-        </div>
-      </> : <div className="locked-panel">이 프로필에서는 {title} 추가·토글·삭제가 허용되지 않습니다. 서버 관리 항목은 항상 잠겨 있습니다.</div>}
+          <div className="modrinth-section">
+            <div className="modrinth-heading"><strong>Modrinth</strong><span>{kind === "mods" ? `${profile.minecraftVersion} 호환` : "모든 게임 버전 설치 가능"}</span></div>
+            <div className="modrinth-results">
+              {!projects.length && loading ? <div className="inline-loading">불러오는 중...</div> : projects.map((project) => {
+                const installed = entries.some((entry) => entry.projectId === project.project_id);
+                return <article key={project.project_id}>
+                  {project.icon_url ? <img src={project.icon_url} alt="" loading="lazy" decoding="async" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" /> : <span className="project-placeholder" onDoubleClick={() => openProject(project)} title="더블클릭하여 Modrinth 페이지 열기" />}
+                  <div><strong>{project.title}</strong><small>{project.author} · {Intl.NumberFormat("ko-KR", { notation: "compact" }).format(project.downloads)} 다운로드</small></div>
+                  <button type="button" disabled={installed || installing === project.project_id} onClick={() => void installProject(project)}>{installed ? "설치됨" : installing === project.project_id ? "설치 중" : "설치"}</button>
+                </article>;
+              })}
+              <div className="load-more-sentinel" ref={loadMoreRef}>{loading && projects.length ? "더 불러오는 중..." : hasMore ? "" : projects.length ? "모두 불러왔습니다." : ""}</div>
+            </div>
+          </div>
+        </> : <div className="locked-panel">이 프로필에서는 {title} 추가·토글·삭제가 허용되지 않습니다.</div>}
+      </section>
     </div>
   );
 }

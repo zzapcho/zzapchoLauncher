@@ -2104,6 +2104,274 @@ a:focus-visible {
   }
 }
 
+/* Keep the existing content layout; only split the two wide columns into scroll viewports. */
+.content-installed-pane,
+.content-available-pane {
+  display: contents;
+}
+
+.content-available-pane > * {
+  margin-top: 12px;
+}
+
+.profile-selector.is-open,
+.profile-selector.is-closing {
+  z-index: 120;
+}
+
+@media (min-width: 1120px) {
+  .launcher-shell.is-wide .content-manager {
+    width: min(100%, 1040px);
+    height: 100%;
+    grid-template-columns: minmax(300px, .96fr) minmax(340px, 1.04fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "installed available";
+    align-content: stretch;
+    column-gap: 12px;
+    overflow: hidden;
+  }
+
+  .launcher-shell.is-wide .content-manager > * + * {
+    margin-top: 0;
+  }
+
+  .launcher-shell.is-wide .content-installed-pane,
+  .launcher-shell.is-wide .content-available-pane {
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    align-content: start;
+    gap: 8px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .launcher-shell.is-wide .content-installed-pane > .content-list,
+  .launcher-shell.is-wide .content-available-pane > .content-toolbar,
+  .launcher-shell.is-wide .content-available-pane > .modrinth-section {
+    grid-area: auto;
+    margin-top: 0;
+  }
+
+  .launcher-shell.is-wide .content-installed-pane {
+    grid-area: installed;
+  }
+
+  .launcher-shell.is-wide .content-available-pane {
+    grid-area: available;
+  }
+
+  .launcher-shell.is-wide .content-available-pane.is-locked {
+    place-items: center;
+    align-content: stretch;
+  }
+
+  .launcher-shell.is-wide .content-available-pane.is-locked .locked-panel {
+    width: 100%;
+  }
+}
+
+/* 0.7 viewport rhythm: one gutter, no stacked bottom padding, and bounded overlays. */
+.launcher-shell {
+  --viewport-gutter: clamp(6px, 1.1vmin, 12px);
+  grid-template-rows: 48px minmax(0, 1fr) auto;
+}
+
+.launcher-shell > .hero,
+.launcher-shell > .section-panel,
+.content-manager,
+.content-installed-pane,
+.content-available-pane,
+.settings-grid,
+.logs-panel,
+.log-view-wrap {
+  min-width: 0;
+  min-height: 0;
+}
+
+.hero {
+  padding: 0 var(--viewport-gutter) 2px;
+}
+
+.profile-selector {
+  max-width: calc(100vw - (var(--viewport-gutter) * 2));
+  margin-bottom: 0;
+}
+
+.profile-menu {
+  display: flex;
+  max-height: calc(100dvh - 56px);
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.profile-menu-label {
+  flex: none;
+}
+
+.profile-options {
+  min-height: 0;
+  max-height: min(220px, calc(100dvh - 94px));
+}
+
+.section-panel {
+  width: min(calc(100% - (var(--viewport-gutter) * 2)), 580px);
+  max-height: calc(100dvh - 58px);
+  padding: 12px 12px 6px;
+}
+
+.section-panel > header {
+  margin-bottom: 10px;
+}
+
+.content-manager,
+.settings-grid {
+  padding: 1px 2px 4px;
+  scroll-padding-bottom: 4px;
+}
+
+.logs-panel {
+  padding-bottom: 4px;
+}
+
+.launcher-shell.is-wide .section-panel {
+  max-height: calc(100dvh - 52px);
+  padding: 4px clamp(12px, 2vw, 18px) 6px;
+}
+
+.launcher-shell.is-wide .content-installed-pane,
+.launcher-shell.is-wide .content-available-pane {
+  padding-bottom: 2px;
+  scroll-padding-bottom: 2px;
+}
+
+.content-row,
+.modrinth-results article,
+.settings-grid article,
+.content-toolbar,
+.content-toolbar form,
+.account-setting,
+.java-path-row {
+  min-width: 0;
+}
+
+.content-name,
+.modrinth-results article > div,
+.account-setting > div,
+.java-path-row input {
+  min-width: 0;
+}
+
+.launcher-toast {
+  right: var(--viewport-gutter);
+  bottom: var(--viewport-gutter);
+  max-width: calc(100vw - (var(--viewport-gutter) * 2));
+}
+
+.launcher-shell.is-home .launcher-toast {
+  bottom: 48px;
+}
+
+@media (max-width: 700px), (max-height: 700px) {
+  .version-config-panel,
+  .version-config.is-vanilla .version-config-panel {
+    position: fixed;
+    inset: var(--viewport-gutter);
+    z-index: 100;
+    display: flex;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    padding: 12px;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+    border-radius: 18px;
+    transform: none;
+    animation: compact-version-dialog-in .2s cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .version-config.is-open,
+  .version-config.is-closing {
+    z-index: 100;
+  }
+
+  .version-config.is-closing .version-config-panel {
+    opacity: 0;
+    transform: scale(.985);
+  }
+
+  .version-config-compact-header {
+    display: flex;
+    min-height: 38px;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px 0 5px;
+  }
+
+  .version-config-compact-header strong {
+    color: rgba(255,255,255,.96);
+    font-size: 15px;
+    font-weight: 780;
+  }
+
+  .version-config-compact-header button {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    padding: 0 0 2px;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 12px;
+    color: rgba(255,255,255,.86);
+    background: rgba(255,255,255,.07);
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .version-editor,
+  .version-config .version-editor {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .section-panel {
+    width: calc(100% - (var(--viewport-gutter) * 2));
+    padding: 10px 10px 5px;
+  }
+
+  .content-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .content-toolbar .section-action,
+  .content-toolbar form {
+    width: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .version-config-panel,
+  .version-config.is-vanilla .version-config-panel {
+    overflow-y: auto;
+  }
+
+  .version-config .version-editor {
+    height: auto;
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @keyframes compact-version-dialog-in {
   from { opacity: 0; transform: translateY(8px) scale(.985); }
   to { opacity: 1; transform: none; }

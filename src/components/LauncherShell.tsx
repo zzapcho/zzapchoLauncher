@@ -140,7 +140,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
   };
 
   return (
-    <main className={`launcher-shell${switchingProfile ? " is-profile-switching" : ""}${wideLayout ? " is-wide" : ""}`} style={{ "--accent": accent, "--background": background } as React.CSSProperties}>
+    <main className={`launcher-shell${switchingProfile ? " is-profile-switching" : ""}${wideLayout ? " is-wide" : ""}${activeSection === "home" ? " is-home" : ""}`} style={{ "--accent": accent, "--background": background } as React.CSSProperties}>
       <div className="edge-distortion" aria-hidden="true" />
       <WindowControls activeSection={activeSection} onNavigate={navigate} profile={profile} updateAvailable={appUpdate.available} />
 

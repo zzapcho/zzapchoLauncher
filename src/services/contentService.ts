@@ -13,9 +13,24 @@ interface StoredContentState extends Partial<ProfileContentState> {
 
 const emptyDisabledServerState = (): DisabledServerState => ({ mods: [], resourcePacks: [], shaders: [] });
 
+function contentFileName(entry: LauncherProfile[ContentKind][number]): string | undefined {
+  if (entry.fileName) return entry.fileName;
+  try {
+    const fileName = new URL(entry.url).pathname.split("/").filter(Boolean).pop();
+    return fileName ? decodeURIComponent(fileName) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function serverEntries(profile: LauncherProfile, kind: ContentKind, disabledServerIds: DisabledServerState): ManagedContentEntry[] {
   const disabled = new Set(disabledServerIds[kind]);
-  return profile[kind].map((entry) => ({ ...entry, source: "server", enabled: entry.required || !disabled.has(entry.id) }));
+  return profile[kind].map((entry) => ({
+    ...entry,
+    source: "server",
+    enabled: entry.required || !disabled.has(entry.id),
+    fileName: contentFileName(entry),
+  }));
 }
 
 function loadStoredState(profileId: string): { user: ProfileContentState; disabledServerIds: DisabledServerState } {

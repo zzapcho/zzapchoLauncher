@@ -35,7 +35,7 @@ export async function launchProfile(
   const maxMemoryMb = Math.max(profile.launchOptions.minMemoryMb, Math.min(profile.launchOptions.maxMemoryMb, requestedMemory));
   const allContent = getProfileContent(profile);
   const content = (Object.entries(allContent) as Array<[keyof typeof allContent, typeof allContent.mods]>).flatMap(([kind, entries]) =>
-    entries.filter((entry) => entry.source === "user" && entry.fileName).map((entry) => ({ kind, fileName: entry.fileName!, enabled: entry.enabled })),
+    entries.filter((entry) => entry.fileName).map((entry) => ({ kind, fileName: entry.fileName!, enabled: entry.enabled })),
   );
   const stopProgress = await listen<LaunchProgress>("launch-progress", (event) => onProgress?.(event.payload));
   let result: { processId: number };
