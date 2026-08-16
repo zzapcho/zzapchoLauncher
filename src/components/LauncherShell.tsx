@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useAccentColor } from "../hooks/useAccentColor";
-import { forceStopMinecraft, isMinecraftRunning, launchProfile, syncProfileContent, type LaunchProgress } from "../services/launchService";
+import { isMinecraftRunning, launchProfile, stopMinecraft, syncProfileContent, type LaunchProgress } from "../services/launchService";
 import type { LauncherProfile } from "../types/profile";
 import { PlayButton } from "./PlayButton";
 import { ProfileSelector } from "./ProfileSelector";
@@ -62,16 +62,28 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
   }, []);
   useEffect(() => {
     if (!("__TAURI_INTERNALS__" in window)) return;
-    void isMinecraftRunning().then((running) => {
-      if (running) setLaunchProgress({ status: "running", message: "Minecraft 실행 중", progress: 100 });
-    }).catch(() => undefined);
-    const unlisten = listen<{ code: number | null; forced?: boolean }>("game-exited", (event) => {
-      setLaunchProgress({ status: "idle", message: "플레이", progress: 100 });
-      if (!event.payload.forced && event.payload.code !== 0) {
-        setToast(`Minecraft가 비정상 종료되었습니다${event.payload.code === null ? "." : ` (코드 ${event.payload.code}).`}`);
+    let disposed = false;
+    let stopListening: (() => void) | undefined;
+    void (async () => {
+      stopListening = await listen<{ code: number | null; forced?: boolean }>("game-exited", (event) => {
+        setLaunchProgress({ status: "idle", message: "플레이", progress: 100 });
+        if (!event.payload.forced && event.payload.code !== 0) {
+          setToast(`Minecraft가 비정상 종료되었습니다${event.payload.code === null ? "." : ` (코드 ${event.payload.code}).`}`);
+        }
+      });
+      if (disposed) {
+        stopListening();
+        return;
       }
-    });
-    return () => { void unlisten.then((dispose) => dispose()); };
+      const running = await isMinecraftRunning();
+      if (!disposed && running) {
+        setLaunchProgress({ status: "running", message: "Minecraft 실행 중", progress: 100 });
+      }
+    })().catch(() => undefined);
+    return () => {
+      disposed = true;
+      stopListening?.();
+    };
   }, []);
   useEffect(() => {
     const returnHome = (event: KeyboardEvent) => {
@@ -120,7 +132,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
   const handleStop = async () => {
     try {
       setLaunchProgress({ status: "preparing", message: "게임 종료 중", progress: 100 });
-      await forceStopMinecraft();
+      await stopMinecraft();
     } catch (error) {
       setLaunchProgress({ status: "running", message: "Minecraft 실행 중", progress: 100 });
       setToast(error instanceof Error ? error.message : "게임을 종료하지 못했습니다.");

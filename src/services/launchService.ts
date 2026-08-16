@@ -15,7 +15,7 @@ export interface LaunchProgress {
 let contentSyncQueue: Promise<void> = Promise.resolve();
 
 export const isMinecraftRunning = () => invoke<boolean>("minecraft_running");
-export const forceStopMinecraft = () => invoke<void>("force_stop_minecraft");
+export const stopMinecraft = () => invoke<void>("stop_minecraft");
 
 export async function launchProfile(
   profile: LauncherProfile,

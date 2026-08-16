@@ -1606,7 +1606,7 @@ pub fn run() {
             java_runtime::discover_java_runtimes,
             minecraft::launch_minecraft,
             minecraft::minecraft_running,
-            minecraft::force_stop_minecraft,
+            minecraft::stop_minecraft,
             version_catalog::minecraft_versions,
             version_catalog::loader_versions
         ])

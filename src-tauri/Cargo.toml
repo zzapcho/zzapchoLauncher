@@ -1,6 +1,6 @@
 [package]
 name = "zzapcho-launcher"
-version = "0.7.2"
+version = "0.7.3"
 description = "A compact custom Minecraft launcher"
 authors = ["zzapcho"]
 edition = "2021"
@@ -31,4 +31,4 @@ tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
