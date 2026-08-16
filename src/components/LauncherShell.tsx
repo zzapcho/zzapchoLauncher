@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useAccentColor } from "../hooks/useAccentColor";
-import { forceStopMinecraft, isMinecraftRunning, launchProfile, type LaunchProgress } from "../services/launchService";
+import { forceStopMinecraft, isMinecraftRunning, launchProfile, syncProfileContent, type LaunchProgress } from "../services/launchService";
 import type { LauncherProfile } from "../types/profile";
 import { PlayButton } from "./PlayButton";
 import { ProfileSelector } from "./ProfileSelector";
@@ -12,6 +12,7 @@ import type { LauncherSection } from "../types/navigation";
 import type { LauncherAccount } from "../types/auth";
 import type { AppUpdateState } from "../hooks/useAppUpdate";
 import { applyProfileConfiguration, useProfileConfiguration } from "../hooks/useProfileConfiguration";
+import { getProfileContentSyncItems } from "../services/contentService";
 
 interface LauncherShellProps {
   profiles: LauncherProfile[];
@@ -37,6 +38,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
   const transitionTimers = useRef<number[]>([]);
   const status = launchProgress.status;
   const busy = !["idle", "error"].includes(status);
+  const profileContentSyncSignature = profile ? JSON.stringify(getProfileContentSyncItems(profile)) : "";
 
   useEffect(() => () => transitionTimers.current.forEach(window.clearTimeout), []);
   useEffect(() => {
@@ -82,6 +84,13 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
     if (profile?.modLoader !== "vanilla" || !["mods", "shaders"].includes(activeSection)) return;
     setActiveSection("home");
   }, [profile?.modLoader, activeSection]);
+  useEffect(() => {
+    if (!profile || busy || !("__TAURI_INTERNALS__" in window)) return;
+    void syncProfileContent(profile, profiles).catch((error) => {
+      console.warn("프로필 콘텐츠 동기화 실패", error);
+      setToast(error instanceof Error ? error.message : String(error));
+    });
+  }, [profile?.id, profileContentSyncSignature, busy]);
 
   if (loading) return <main className="empty-state"><span className="loader" />프로필을 불러오는 중...</main>;
   if (!profile) return <main className="empty-state empty-profile-state">
@@ -97,7 +106,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
       const latestProfiles = await refreshProfiles(true);
       const latestBase = latestProfiles.find((item) => item.id === profile.id) ?? latestProfiles[0];
       if (!latestBase) throw new Error("사용 가능한 프로필이 없습니다.");
-      const result = await launchProfile(applyProfileConfiguration(latestBase), account, setLaunchProgress);
+      const result = await launchProfile(applyProfileConfiguration(latestBase), account, setLaunchProgress, latestProfiles);
       setLaunchProgress({ status: "running", message: "Minecraft 실행 중", progress: 100 });
       console.info(result.message);
     } catch (error) {
@@ -150,7 +159,7 @@ export function LauncherShell({ profiles, selectedProfile, selectProfile, refres
         </div>
         <PlayButton status={status} message={launchProgress.message} progress={launchProgress.progress} onLaunch={handleLaunch} onStop={handleStop} />
         <VersionBadge profile={profile} configuration={configuration} />
-      </section> : <SectionPanel profile={profile} configuration={configuration} section={activeSection} account={account} onLogout={onLogout} appUpdate={appUpdate} />}
+      </section> : <SectionPanel profile={profile} configuration={configuration} section={activeSection} account={account} onLogout={onLogout} appUpdate={appUpdate} contentChangesDisabled={busy} />}
 
       {activeSection === "home" && <ProfileSelector profiles={profiles} selectedProfile={profile} onSelect={changeProfile} disabled={busy} />}
       {toast && <div className={`launcher-toast${toastClosing ? " is-closing" : ""}`} role="alert">

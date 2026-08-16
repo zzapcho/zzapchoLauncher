@@ -33,6 +33,17 @@ function serverEntries(profile: LauncherProfile, kind: ContentKind, disabledServ
   }));
 }
 
+function withoutDuplicateFiles(entries: ManagedContentEntry[]): ManagedContentEntry[] {
+  const seen = new Set<string>();
+  return entries.filter((entry) => {
+    if (!entry.fileName) return true;
+    const key = entry.fileName.toLocaleLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function loadStoredState(profileId: string): { user: ProfileContentState; disabledServerIds: DisabledServerState } {
   try {
     const raw = localStorage.getItem(`${CONTENT_KEY_PREFIX}${profileId}`);
@@ -58,10 +69,45 @@ function loadStoredState(profileId: string): { user: ProfileContentState; disabl
 export function getProfileContent(profile: LauncherProfile): ProfileContentState {
   const { user, disabledServerIds } = loadStoredState(profile.id);
   return {
-    mods: [...serverEntries(profile, "mods", disabledServerIds), ...user.mods],
-    resourcePacks: [...serverEntries(profile, "resourcePacks", disabledServerIds), ...user.resourcePacks],
-    shaders: [...serverEntries(profile, "shaders", disabledServerIds), ...user.shaders],
+    mods: withoutDuplicateFiles([...serverEntries(profile, "mods", disabledServerIds), ...user.mods]),
+    resourcePacks: withoutDuplicateFiles([...serverEntries(profile, "resourcePacks", disabledServerIds), ...user.resourcePacks]),
+    shaders: withoutDuplicateFiles([...serverEntries(profile, "shaders", disabledServerIds), ...user.shaders]),
   };
+}
+
+export interface ProfileContentSyncItem {
+  kind: ContentKind;
+  fileName: string;
+  enabled: boolean;
+  url: string | null;
+  sha512: string | null;
+}
+
+export interface ManagedProfileContentFile {
+  profileId: string;
+  kind: ContentKind;
+  fileName: string;
+  url: string | null;
+}
+
+export function getProfileContentSyncItems(profile: LauncherProfile): ProfileContentSyncItem[] {
+  const state = getProfileContent(profile);
+  return (Object.entries(state) as Array<[ContentKind, ManagedContentEntry[]]>).flatMap(([kind, entries]) =>
+    entries
+      .filter((entry) => Boolean(entry.fileName))
+      .map((entry) => ({ kind, fileName: entry.fileName!, enabled: entry.enabled, url: entry.url || null, sha512: entry.sha512 || null })),
+  );
+}
+
+export function getManagedProfileContentFiles(profiles: LauncherProfile[]): ManagedProfileContentFile[] {
+  return profiles.flatMap((profile) =>
+    getProfileContentSyncItems(profile).map((entry) => ({
+      profileId: profile.id,
+      kind: entry.kind,
+      fileName: entry.fileName,
+      url: entry.url,
+    })),
+  );
 }
 
 export function saveProfileContent(profileId: string, state: ProfileContentState): void {
@@ -78,7 +124,7 @@ export function saveProfileContent(profileId: string, state: ProfileContentState
   localStorage.setItem(`${CONTENT_KEY_PREFIX}${profileId}`, JSON.stringify(userOnly));
 }
 
-export function createUserContent(name: string, fileName?: string, projectId?: string, version = "local", iconUrl?: string, gameVersions?: string[]): ManagedContentEntry {
+export function createUserContent(name: string, fileName?: string, projectId?: string, version = "local", iconUrl?: string, gameVersions?: string[], sha512?: string): ManagedContentEntry {
   return {
     id: projectId ? `modrinth-${projectId}` : `local-${Date.now()}-${name}`,
     name,
@@ -91,14 +137,19 @@ export function createUserContent(name: string, fileName?: string, projectId?: s
     projectId,
     iconUrl,
     gameVersions,
+    sha512,
   };
 }
 
 export function validateProfileContent(profile: LauncherProfile): { valid: boolean; enabled: ManagedContentEntry[]; issues: string[] } {
   const state = getProfileContent(profile);
   const entries = [...state.mods, ...state.resourcePacks, ...state.shaders];
-  const issues = entries
+  const disabledRequired = entries
     .filter((entry) => entry.source === "server" && entry.required && !entry.enabled)
     .map((entry) => `필수 콘텐츠 비활성화: ${entry.name}`);
+  const missingRequiredFiles = entries
+    .filter((entry) => entry.source === "server" && entry.required && !entry.fileName)
+    .map((entry) => `필수 콘텐츠 파일 정보 없음: ${entry.name}`);
+  const issues = [...disabledRequired, ...missingRequiredFiles];
   return { valid: issues.length === 0, enabled: entries.filter((entry) => entry.enabled), issues };
 }

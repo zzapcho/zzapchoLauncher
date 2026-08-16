@@ -8,6 +8,8 @@ export interface ContentEntry {
   url: string;
   fileName?: string;
   sha256?: string;
+  sha1?: string;
+  sha512?: string;
 }
 
 export interface DefaultServer {

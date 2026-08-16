@@ -18,7 +18,7 @@ interface ModrinthVersion {
   id: string;
   version_number: string;
   game_versions: string[];
-  files: Array<{ url: string; filename: string; primary: boolean }>;
+  files: Array<{ url: string; filename: string; primary: boolean; hashes?: { sha512?: string } }>;
 }
 
 export interface ModrinthVersionOption {
@@ -27,6 +27,7 @@ export interface ModrinthVersionOption {
   url: string;
   fileName: string;
   gameVersions: string[];
+  sha512?: string;
 }
 
 const projectType: Record<ContentKind, ModrinthProject["project_type"]> = {
@@ -62,7 +63,7 @@ export async function getInstallableVersions(projectId: string, kind: ContentKin
   const versions = await response.json() as ModrinthVersion[];
   return versions.flatMap((version) => {
     const file = version.files.find((item) => item.primary) ?? version.files[0];
-    return file ? [{ id: version.id, version: version.version_number, url: file.url, fileName: file.filename, gameVersions: version.game_versions ?? [] }] : [];
+    return file ? [{ id: version.id, version: version.version_number, url: file.url, fileName: file.filename, gameVersions: version.game_versions ?? [], sha512: file.hashes?.sha512 }] : [];
   });
 }
 

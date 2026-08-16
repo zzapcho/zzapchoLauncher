@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     fs,
     io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
@@ -62,11 +61,12 @@ fn keep_minecraft_window_title(process_id: u32, minecraft_version: String) {
         let search = unsafe { &mut *(data as *mut WindowSearch) };
         let mut owner_process_id = 0;
         unsafe { GetWindowThreadProcessId(window, &mut owner_process_id) };
-        if owner_process_id == search.process_id && unsafe { IsWindowVisible(window) } != 0 {
-            if unsafe { SetWindowTextW(window, search.title.as_ptr()) } != 0 {
-                search.updated = true;
-                return 0;
-            }
+        if owner_process_id == search.process_id
+            && unsafe { IsWindowVisible(window) } != 0
+            && unsafe { SetWindowTextW(window, search.title.as_ptr()) } != 0
+        {
+            search.updated = true;
+            return 0;
         }
         1
     }
@@ -110,14 +110,6 @@ pub struct LaunchAccount {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ContentToggle {
-    kind: String,
-    file_name: String,
-    enabled: bool,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct LaunchMinecraftRequest {
     profile_id: String,
     minecraft_version: String,
@@ -128,7 +120,8 @@ pub struct LaunchMinecraftRequest {
     java_args: Vec<String>,
     java_version: Option<u32>,
     java_path: Option<String>,
-    content: Vec<ContentToggle>,
+    content: Vec<super::ProfileContentItem>,
+    managed_files: Vec<super::ManagedProfileContentFile>,
     account: LaunchAccount,
 }
 
@@ -224,31 +217,6 @@ fn install_fallback_maven_libraries(
     Ok(())
 }
 
-fn sync_content(profile_dir: &Path, content: &[ContentToggle]) -> Result<(), String> {
-    let valid_kinds: HashSet<&str> = ["mods", "resourcePacks", "shaders"].into_iter().collect();
-    for item in content {
-        if !valid_kinds.contains(item.kind.as_str()) {
-            continue;
-        }
-        let folder = match item.kind.as_str() {
-            "resourcePacks" => "resourcepacks",
-            "shaders" => "shaderpacks",
-            _ => "mods",
-        };
-        let Some(file_name) = Path::new(&item.file_name).file_name() else {
-            continue;
-        };
-        let enabled_path = profile_dir.join(folder).join(file_name);
-        let disabled_path = PathBuf::from(format!("{}.disabled", enabled_path.display()));
-        if item.enabled && disabled_path.exists() && !enabled_path.exists() {
-            fs::rename(disabled_path, enabled_path).map_err(|error| error.to_string())?;
-        } else if !item.enabled && enabled_path.exists() && !disabled_path.exists() {
-            fs::rename(enabled_path, disabled_path).map_err(|error| error.to_string())?;
-        }
-    }
-    Ok(())
-}
-
 fn read_game_output<R: Read + Send + 'static>(reader: R, app: tauri::AppHandle) {
     thread::spawn(move || {
         for line in BufReader::new(reader).lines().map_while(Result::ok) {
@@ -276,7 +244,12 @@ fn prepare_and_launch(
         ),
     );
     emit_progress(&app, "모드 확인 중", 12);
-    sync_content(&minecraft_dir, &request.content)?;
+    super::sync_profile_content_files(
+        &app,
+        &request.profile_id,
+        &request.content,
+        &request.managed_files,
+    )?;
 
     let java_major = request
         .java_version

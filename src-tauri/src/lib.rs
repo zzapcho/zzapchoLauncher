@@ -1,8 +1,16 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha512};
 use std::{
+    collections::HashMap,
     fs,
+    io::{self, Read},
     path::{Path, PathBuf},
     process::Command,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Mutex, MutexGuard,
+    },
+    time::Duration,
 };
 use tauri::Manager;
 
@@ -15,6 +23,16 @@ mod discord_presence;
 
 const MICROSOFT_CLIENT_ID: &str = "00000000402b5328";
 const MICROSOFT_SCOPE: &str = "XboxLive.signin offline_access";
+static CONTENT_FILES_LOCK: Mutex<()> = Mutex::new(());
+static CONTENT_TRANSACTION_ID: AtomicU64 = AtomicU64::new(1);
+const MAX_CONTENT_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
+const CONTENT_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(90);
+
+fn lock_content_files() -> Result<MutexGuard<'static, ()>, String> {
+    CONTENT_FILES_LOCK
+        .lock()
+        .map_err(|_| "콘텐츠 파일 잠금이 손상되었습니다.".to_string())
+}
 
 #[cfg(windows)]
 fn refresh_shell_icon_cache_after_update(app: &tauri::AppHandle) {
@@ -324,6 +342,176 @@ fn content_folder(
     Ok(path)
 }
 
+fn profile_content_folder(
+    app: &tauri::AppHandle,
+    profile_id: &str,
+    kind: &str,
+) -> Result<PathBuf, String> {
+    if profile_id.trim().is_empty() {
+        return Err("프로필 ID가 비어 있습니다.".into());
+    }
+    let folder = match kind {
+        "mods" => "mods",
+        "resourcePacks" => "resourcepacks",
+        "shaders" => "shaderpacks",
+        _ => return Err("지원하지 않는 콘텐츠 종류입니다.".into()),
+    };
+    let path = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("profile-content")
+        .join(safe_segment(profile_id))
+        .join(folder);
+    fs::create_dir_all(&path).map_err(|error| error.to_string())?;
+    Ok(path)
+}
+
+fn normalized_content_file_name(value: &str) -> Result<String, String> {
+    let name = Path::new(value)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty() && *name != "." && *name != "..")
+        .ok_or("콘텐츠 파일 이름을 확인할 수 없습니다.")?;
+    Ok(name.to_string())
+}
+
+fn normalized_content_identity(kind: &str, file_name: &str) -> Result<(String, String), String> {
+    content_kind_label(kind)?;
+    Ok((
+        kind.to_string(),
+        normalized_content_file_name(file_name)?.to_ascii_lowercase(),
+    ))
+}
+
+fn profile_content_path(
+    app: &tauri::AppHandle,
+    profile_id: &str,
+    kind: &str,
+    file_name: &str,
+) -> Result<PathBuf, String> {
+    Ok(profile_content_folder(app, profile_id, kind)?
+        .join(normalized_content_file_name(file_name)?))
+}
+
+fn active_content_paths(
+    app: &tauri::AppHandle,
+    profile_id: &str,
+    kind: &str,
+    file_name: &str,
+) -> Result<(PathBuf, PathBuf), String> {
+    let active =
+        content_folder(app, profile_id, kind)?.join(normalized_content_file_name(file_name)?);
+    let disabled = PathBuf::from(format!("{}.disabled", active.display()));
+    Ok((active, disabled))
+}
+
+fn remove_file_if_exists(path: &Path) -> Result<(), String> {
+    if path.exists() {
+        fs::remove_file(path).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn temporary_content_path(destination: &Path, purpose: &str) -> Result<PathBuf, String> {
+    let parent = destination
+        .parent()
+        .ok_or("콘텐츠 파일의 상위 폴더를 확인할 수 없습니다.")?;
+    let stem = destination
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("content");
+    let extension = destination
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| format!(".{value}"))
+        .unwrap_or_default();
+    let id = CONTENT_TRANSACTION_ID.fetch_add(1, Ordering::Relaxed);
+    Ok(parent.join(format!(
+        ".{stem}.zzapcho-{purpose}-{}-{id}{extension}",
+        std::process::id()
+    )))
+}
+
+fn restore_backups(backups: &[(PathBuf, PathBuf)]) {
+    for (original, backup) in backups.iter().rev() {
+        let _ = remove_file_if_exists(original);
+        if backup.exists() {
+            let _ = fs::rename(backup, original);
+        }
+    }
+}
+
+fn remove_files_transactionally(paths: &[PathBuf]) -> Result<(), String> {
+    let mut backups = Vec::new();
+    for original in paths {
+        if !original.exists() {
+            continue;
+        }
+        let backup = match temporary_content_path(original, "delete") {
+            Ok(path) => path,
+            Err(error) => {
+                restore_backups(&backups);
+                return Err(error);
+            }
+        };
+        if let Err(error) = fs::rename(original, &backup) {
+            restore_backups(&backups);
+            return Err(error.to_string());
+        }
+        backups.push((original.clone(), backup));
+    }
+    for (_, backup) in backups {
+        let _ = remove_file_if_exists(&backup);
+    }
+    Ok(())
+}
+
+fn commit_staged_file(staged: &Path, destination: &Path) -> Result<(), String> {
+    let backup = if destination.exists() {
+        let backup = temporary_content_path(destination, "backup")?;
+        fs::rename(destination, &backup).map_err(|error| error.to_string())?;
+        Some(backup)
+    } else {
+        None
+    };
+
+    if let Err(error) = fs::rename(staged, destination) {
+        if let Some(backup) = backup.as_ref() {
+            let _ = fs::rename(backup, destination);
+        }
+        let _ = remove_file_if_exists(staged);
+        return Err(error.to_string());
+    }
+    if let Some(backup) = backup {
+        let _ = remove_file_if_exists(&backup);
+    }
+    Ok(())
+}
+
+fn copy_file_atomically(source: &Path, destination: &Path) -> Result<(), String> {
+    if source == destination {
+        return Ok(());
+    }
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let staged = temporary_content_path(destination, "stage")?;
+    if let Err(error) = fs::copy(source, &staged) {
+        let _ = remove_file_if_exists(&staged);
+        return Err(error.to_string());
+    }
+    commit_staged_file(&staged, destination)
+}
+
+fn ensure_content_changes_allowed() -> Result<(), String> {
+    if minecraft::game_process_running() {
+        Err("Minecraft 실행 중에는 프로필 콘텐츠를 바꿀 수 없습니다.".into())
+    } else {
+        Ok(())
+    }
+}
+
 fn open_in_explorer(path: &Path) -> Result<String, String> {
     fs::create_dir_all(path).map_err(|error| error.to_string())?;
     Command::new("explorer.exe")
@@ -339,7 +527,7 @@ fn open_content_folder(
     profile_id: String,
     kind: String,
 ) -> Result<String, String> {
-    open_in_explorer(&content_folder(&app, &profile_id, &kind)?)
+    open_in_explorer(&profile_content_folder(&app, &profile_id, &kind)?)
 }
 
 #[tauri::command]
@@ -445,9 +633,440 @@ fn validate_content_file(kind: &str, source: &Path) -> Result<(), String> {
     validate_content_archive_entries(kind, &entries)
 }
 
+fn validate_content_checksum(source: &Path, expected_sha512: Option<&str>) -> Result<(), String> {
+    let Some(expected) = expected_sha512.filter(|value| !value.trim().is_empty()) else {
+        return Ok(());
+    };
+    let mut file = fs::File::open(source).map_err(|error| error.to_string())?;
+    let mut hasher = Sha512::new();
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| error.to_string())?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    let actual = format!("{:x}", hasher.finalize());
+    if actual.eq_ignore_ascii_case(expected.trim()) {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} 파일의 SHA-512 검증에 실패했습니다.",
+            source.file_name().unwrap_or_default().to_string_lossy()
+        ))
+    }
+}
+
+fn validate_stored_content(
+    kind: &str,
+    source: &Path,
+    expected_sha512: Option<&str>,
+) -> Result<(), String> {
+    validate_content_file(kind, source)?;
+    validate_content_checksum(source, expected_sha512)
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProfileContentItem {
+    kind: String,
+    file_name: String,
+    enabled: bool,
+    url: Option<String>,
+    sha512: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ManagedProfileContentFile {
+    profile_id: String,
+    kind: String,
+    file_name: String,
+    url: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ActiveContentManifestItem {
+    kind: String,
+    file_name: String,
+}
+
+fn active_content_manifest_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let folder = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("profile-content");
+    fs::create_dir_all(&folder).map_err(|error| error.to_string())?;
+    Ok(folder.join("active-manifest.json"))
+}
+
+fn load_active_content_manifest(
+    app: &tauri::AppHandle,
+) -> Result<Vec<ActiveContentManifestItem>, String> {
+    let path = active_content_manifest_path(app)?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    Ok(serde_json::from_slice(&bytes).unwrap_or_default())
+}
+
+fn save_active_content_manifest(
+    app: &tauri::AppHandle,
+    items: &[ActiveContentManifestItem],
+) -> Result<(), String> {
+    let path = active_content_manifest_path(app)?;
+    let bytes = serde_json::to_vec_pretty(items).map_err(|error| error.to_string())?;
+    let staged = temporary_content_path(&path, "manifest")?;
+    if let Err(error) = fs::write(&staged, bytes) {
+        let _ = remove_file_if_exists(&staged);
+        return Err(error.to_string());
+    }
+    commit_staged_file(&staged, &path)
+}
+
+fn change_active_content_manifest(
+    app: &tauri::AppHandle,
+    kind: &str,
+    remove_names: &[&str],
+    active_name: Option<&str>,
+) -> Result<Vec<ActiveContentManifestItem>, String> {
+    content_kind_label(kind)?;
+    let remove_names = remove_names
+        .iter()
+        .map(|name| normalized_content_file_name(name).map(|name| name.to_ascii_lowercase()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut items = load_active_content_manifest(app)?;
+    let previous = items.clone();
+    items.retain(|item| {
+        item.kind != kind
+            || !remove_names
+                .iter()
+                .any(|name| item.file_name.eq_ignore_ascii_case(name))
+    });
+    if let Some(active_name) = active_name {
+        items.push(ActiveContentManifestItem {
+            kind: kind.to_string(),
+            file_name: normalized_content_file_name(active_name)?,
+        });
+    }
+    save_active_content_manifest(app, &items)?;
+    Ok(previous)
+}
+
+fn copy_into_profile_store(
+    app: &tauri::AppHandle,
+    profile_id: &str,
+    kind: &str,
+    file_name: &str,
+    source: &Path,
+) -> Result<PathBuf, String> {
+    let destination = profile_content_path(app, profile_id, kind, file_name)?;
+    copy_file_atomically(source, &destination)?;
+    Ok(destination)
+}
+
+fn download_profile_content(
+    app: &tauri::AppHandle,
+    profile_id: &str,
+    kind: &str,
+    file_name: &str,
+    url: &str,
+    sha512: Option<&str>,
+) -> Result<PathBuf, String> {
+    let parsed = reqwest::Url::parse(url).map_err(|error| error.to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("콘텐츠 다운로드 주소는 HTTPS여야 합니다.".into());
+    }
+    let destination = profile_content_path(app, profile_id, kind, file_name)?;
+    let staged = temporary_content_path(&destination, "download")?;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(CONTENT_DOWNLOAD_TIMEOUT)
+        .build()
+        .map_err(|error| error.to_string())?;
+    let response = client
+        .get(parsed)
+        .send()
+        .map_err(|error| error.to_string())?
+        .error_for_status()
+        .map_err(|error| error.to_string())?;
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_CONTENT_DOWNLOAD_BYTES)
+    {
+        return Err("콘텐츠 파일이 허용 크기(512 MB)를 초과합니다.".into());
+    }
+    let mut output = fs::File::create(&staged).map_err(|error| error.to_string())?;
+    let mut limited = response.take(MAX_CONTENT_DOWNLOAD_BYTES + 1);
+    let copied = match io::copy(&mut limited, &mut output) {
+        Ok(copied) => copied,
+        Err(error) => {
+            let _ = fs::remove_file(&staged);
+            return Err(error.to_string());
+        }
+    };
+    if copied > MAX_CONTENT_DOWNLOAD_BYTES {
+        let _ = fs::remove_file(&staged);
+        return Err("콘텐츠 파일이 허용 크기(512 MB)를 초과합니다.".into());
+    }
+    drop(output);
+    if let Err(error) = validate_stored_content(kind, &staged, sha512) {
+        let _ = fs::remove_file(&staged);
+        return Err(error);
+    }
+    commit_staged_file(&staged, &destination)?;
+    Ok(destination)
+}
+
+fn ensure_profile_content_file(
+    app: &tauri::AppHandle,
+    profile_id: &str,
+    item: &ProfileContentItem,
+) -> Result<PathBuf, String> {
+    let stored = profile_content_path(app, profile_id, &item.kind, &item.file_name)?;
+    if stored.exists() {
+        match validate_stored_content(&item.kind, &stored, item.sha512.as_deref()) {
+            Ok(()) => return Ok(stored),
+            Err(error) if item.url.as_deref().is_none_or(|url| url.trim().is_empty()) => {
+                return Err(error);
+            }
+            Err(_) => {}
+        }
+    }
+
+    if let Some(url) = item.url.as_deref().filter(|url| !url.trim().is_empty()) {
+        return download_profile_content(
+            app,
+            profile_id,
+            &item.kind,
+            &item.file_name,
+            url,
+            item.sha512.as_deref(),
+        );
+    }
+
+    let (active, disabled) = active_content_paths(app, profile_id, &item.kind, &item.file_name)?;
+    let source = if active.is_file() {
+        active
+    } else if disabled.is_file() {
+        disabled
+    } else {
+        return Err(format!(
+            "{} 파일을 찾을 수 없습니다. 다시 추가해 주세요.",
+            item.file_name
+        ));
+    };
+    let stored = copy_into_profile_store(app, profile_id, &item.kind, &item.file_name, &source)?;
+    validate_stored_content(&item.kind, &stored, item.sha512.as_deref())?;
+    Ok(stored)
+}
+
+fn replace_active_content(
+    managed_paths: &[(PathBuf, PathBuf)],
+    desired_files: &[(PathBuf, PathBuf)],
+) -> Result<(), String> {
+    let mut staged_files: Vec<(PathBuf, PathBuf)> = Vec::new();
+    for (stored, active) in desired_files {
+        if let Some(parent) = active.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        let staged = temporary_content_path(active, "activate")?;
+        if let Err(error) = fs::copy(stored, &staged) {
+            for (staged, _) in &staged_files {
+                let _ = remove_file_if_exists(staged);
+            }
+            let _ = remove_file_if_exists(&staged);
+            return Err(error.to_string());
+        }
+        staged_files.push((staged, active.clone()));
+    }
+
+    let mut backups = Vec::new();
+    for original in managed_paths
+        .iter()
+        .flat_map(|(active, disabled)| [active, disabled])
+    {
+        if !original.exists() {
+            continue;
+        }
+        let backup = match temporary_content_path(original, "backup") {
+            Ok(path) => path,
+            Err(error) => {
+                restore_backups(&backups);
+                for (staged, _) in &staged_files {
+                    let _ = remove_file_if_exists(staged);
+                }
+                return Err(error);
+            }
+        };
+        if let Err(error) = fs::rename(original, &backup) {
+            restore_backups(&backups);
+            for (staged, _) in &staged_files {
+                let _ = remove_file_if_exists(staged);
+            }
+            return Err(error.to_string());
+        }
+        backups.push((original.clone(), backup));
+    }
+
+    let mut activated: Vec<PathBuf> = Vec::new();
+    for (staged, active) in &staged_files {
+        if let Err(error) = fs::rename(staged, active) {
+            for path in activated.iter().rev() {
+                let _ = remove_file_if_exists(path);
+            }
+            restore_backups(&backups);
+            for (pending, _) in &staged_files {
+                let _ = remove_file_if_exists(pending);
+            }
+            return Err(error.to_string());
+        }
+        activated.push(active.clone());
+    }
+
+    for (_, backup) in backups {
+        let _ = remove_file_if_exists(&backup);
+    }
+    Ok(())
+}
+
+fn sync_profile_content_files_unlocked(
+    app: &tauri::AppHandle,
+    profile_id: &str,
+    content: &[ProfileContentItem],
+    managed_files: &[ManagedProfileContentFile],
+) -> Result<(), String> {
+    if profile_id.trim().is_empty() {
+        return Err("프로필 ID가 비어 있습니다.".into());
+    }
+    let mut selected_content = HashMap::new();
+    for item in content {
+        let identity = normalized_content_identity(&item.kind, &item.file_name)?;
+        if selected_content.insert(identity, ()).is_some() {
+            return Err(format!(
+                "같은 이름의 콘텐츠 파일이 중복되어 있습니다: {}",
+                item.file_name
+            ));
+        }
+    }
+
+    // Preserve existing user-added files from older launcher versions before cleanup.
+    for managed in managed_files {
+        if managed
+            .url
+            .as_deref()
+            .is_some_and(|url| !url.trim().is_empty())
+        {
+            continue;
+        }
+        let stored =
+            profile_content_path(app, &managed.profile_id, &managed.kind, &managed.file_name)?;
+        if stored.exists() {
+            continue;
+        }
+        let (active, disabled) =
+            active_content_paths(app, &managed.profile_id, &managed.kind, &managed.file_name)?;
+        if active.is_file() {
+            copy_into_profile_store(
+                app,
+                &managed.profile_id,
+                &managed.kind,
+                &managed.file_name,
+                &active,
+            )?;
+        } else if disabled.is_file() {
+            copy_into_profile_store(
+                app,
+                &managed.profile_id,
+                &managed.kind,
+                &managed.file_name,
+                &disabled,
+            )?;
+        }
+    }
+
+    // Prepare every enabled file for the selected profile before touching .minecraft.
+    for item in content.iter().filter(|item| item.enabled) {
+        ensure_profile_content_file(app, profile_id, item)?;
+    }
+
+    // Only remove files known to this launcher. Files copied manually by the user stay untouched.
+    let mut managed_content = HashMap::new();
+    for item in load_active_content_manifest(app)? {
+        if let Ok(identity) = normalized_content_identity(&item.kind, &item.file_name) {
+            managed_content.insert(identity, (item.kind, item.file_name));
+        }
+    }
+    for item in managed_files {
+        let identity = normalized_content_identity(&item.kind, &item.file_name)?;
+        managed_content
+            .entry(identity)
+            .or_insert_with(|| (item.kind.clone(), item.file_name.clone()));
+    }
+    for item in content {
+        let identity = normalized_content_identity(&item.kind, &item.file_name)?;
+        managed_content.insert(identity, (item.kind.clone(), item.file_name.clone()));
+    }
+    let managed_paths = managed_content
+        .into_values()
+        .map(|(kind, file_name)| active_content_paths(app, profile_id, &kind, &file_name))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut desired_files = Vec::new();
+    for item in content.iter().filter(|item| item.enabled) {
+        let stored = profile_content_path(app, profile_id, &item.kind, &item.file_name)?;
+        let (active, _) = active_content_paths(app, profile_id, &item.kind, &item.file_name)?;
+        desired_files.push((stored, active));
+    }
+    replace_active_content(&managed_paths, &desired_files)?;
+    let active_manifest = content
+        .iter()
+        .filter(|item| item.enabled)
+        .map(|item| {
+            Ok(ActiveContentManifestItem {
+                kind: item.kind.clone(),
+                file_name: normalized_content_file_name(&item.file_name)?,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    save_active_content_manifest(app, &active_manifest)
+}
+
+pub(crate) fn sync_profile_content_files(
+    app: &tauri::AppHandle,
+    profile_id: &str,
+    content: &[ProfileContentItem],
+    managed_files: &[ManagedProfileContentFile],
+) -> Result<(), String> {
+    let _content_lock = lock_content_files()?;
+    sync_profile_content_files_unlocked(app, profile_id, content, managed_files)
+}
+
+#[tauri::command]
+async fn sync_profile_content(
+    app: tauri::AppHandle,
+    profile_id: String,
+    content: Vec<ProfileContentItem>,
+    managed_files: Vec<ManagedProfileContentFile>,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let _content_lock = lock_content_files()?;
+        ensure_content_changes_allowed()?;
+        sync_profile_content_files_unlocked(&app, &profile_id, &content, &managed_files)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[cfg(test)]
 mod content_file_validation_tests {
-    use super::validate_content_archive_entries;
+    use super::{
+        normalized_content_identity, remove_files_transactionally, replace_active_content,
+        validate_content_archive_entries, validate_content_checksum,
+    };
+    use std::{fs, path::PathBuf, time::SystemTime};
 
     fn entries(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_string()).collect()
@@ -487,6 +1106,138 @@ mod content_file_validation_tests {
         for kind in ["mods", "resourcePacks", "shaders"] {
             assert!(validate_content_archive_entries(kind, &unrelated_archive).is_err());
         }
+    }
+
+    #[test]
+    fn profile_switch_replaces_only_launcher_managed_files() {
+        let unique = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("clock must be after epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "zzapcho-profile-content-test-{}-{unique}",
+            std::process::id()
+        ));
+        let active_folder = root.join("minecraft").join("mods");
+        let store_folder = root.join("profile-content").join("next").join("mods");
+        fs::create_dir_all(&active_folder).expect("create active folder");
+        fs::create_dir_all(&store_folder).expect("create store folder");
+
+        let old_active = active_folder.join("old.jar");
+        let old_disabled = PathBuf::from(format!("{}.disabled", old_active.display()));
+        let next_active = active_folder.join("next.jar");
+        let next_disabled = PathBuf::from(format!("{}.disabled", next_active.display()));
+        let manual_file = active_folder.join("manual.jar");
+        let stored_next = store_folder.join("next.jar");
+        fs::write(&old_active, b"old profile").expect("write old file");
+        fs::write(&old_disabled, b"old disabled profile").expect("write disabled file");
+        fs::write(&manual_file, b"manual file").expect("write manual file");
+        fs::write(&stored_next, b"next profile").expect("write stored file");
+
+        replace_active_content(
+            &[
+                (old_active.clone(), old_disabled.clone()),
+                (next_active.clone(), next_disabled),
+            ],
+            &[(stored_next, next_active.clone())],
+        )
+        .expect("replace active profile content");
+
+        assert!(!old_active.exists());
+        assert!(!old_disabled.exists());
+        assert_eq!(
+            fs::read(&next_active).expect("read next file"),
+            b"next profile"
+        );
+        assert_eq!(
+            fs::read(&manual_file).expect("read manual file"),
+            b"manual file"
+        );
+        fs::remove_dir_all(&root).expect("remove test directory");
+    }
+
+    #[test]
+    fn failed_profile_switch_keeps_the_previous_active_files() {
+        let unique = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("clock must be after epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "zzapcho-profile-rollback-test-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).expect("create test folder");
+        let old_active = root.join("old.jar");
+        let old_disabled = root.join("old.jar.disabled");
+        let next_active = root.join("next.jar");
+        fs::write(&old_active, b"keep me").expect("write old file");
+
+        let result = replace_active_content(
+            &[(old_active.clone(), old_disabled)],
+            &[(root.join("missing.jar"), next_active.clone())],
+        );
+
+        assert!(result.is_err());
+        assert_eq!(fs::read(&old_active).expect("read old file"), b"keep me");
+        assert!(!next_active.exists());
+        fs::remove_dir_all(&root).expect("remove test directory");
+    }
+
+    #[test]
+    fn transactional_delete_removes_all_requested_files() {
+        let unique = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("clock must be after epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "zzapcho-content-delete-test-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).expect("create test folder");
+        let stored = root.join("stored.zip");
+        let active = root.join("active.zip");
+        fs::write(&stored, b"stored").expect("write stored file");
+        fs::write(&active, b"active").expect("write active file");
+
+        remove_files_transactionally(&[stored.clone(), active.clone()])
+            .expect("delete content files");
+
+        assert!(!stored.exists());
+        assert!(!active.exists());
+        fs::remove_dir_all(&root).expect("remove test directory");
+    }
+
+    #[test]
+    fn content_identity_is_case_insensitive_on_windows() {
+        assert_eq!(
+            normalized_content_identity("mods", "Example.JAR").expect("first identity"),
+            normalized_content_identity("mods", "example.jar").expect("second identity")
+        );
+    }
+
+    #[test]
+    fn validates_server_sha512_before_activation() {
+        let unique = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("clock must be after epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "zzapcho-checksum-test-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).expect("create test folder");
+        let file = root.join("content.jar");
+        fs::write(&file, b"abc").expect("write checksum input");
+        let expected = concat!(
+            "ddaf35a193617abacc417349ae204131",
+            "12e6fa4e89a97ea20a9eeee64b55d39a",
+            "2192992a274fc1a836ba3c23a3feebbd",
+            "454d4423643ce80e2a9ac94fa54ca49f"
+        );
+
+        assert!(validate_content_checksum(&file, Some(expected)).is_ok());
+        assert!(validate_content_checksum(&file, Some("wrong")).is_err());
+        fs::remove_dir_all(&root).expect("remove test directory");
     }
 }
 
@@ -638,14 +1389,26 @@ fn install_content_file(
     kind: String,
     source_path: String,
 ) -> Result<String, String> {
+    let _content_lock = lock_content_files()?;
+    ensure_content_changes_allowed()?;
     let source = PathBuf::from(source_path);
     validate_content_file(&kind, &source)?;
     let file_name = source
         .file_name()
+        .and_then(|name| name.to_str())
         .ok_or("파일 이름을 확인할 수 없습니다.")?;
-    let destination = content_folder(&app, &profile_id, &kind)?.join(file_name);
-    fs::copy(&source, &destination).map_err(|error| error.to_string())?;
-    Ok(destination.to_string_lossy().into_owned())
+    let stored = profile_content_path(&app, &profile_id, &kind, file_name)?;
+    copy_file_atomically(&source, &stored)?;
+    let (active, disabled) = active_content_paths(&app, &profile_id, &kind, file_name)?;
+    let previous_manifest =
+        change_active_content_manifest(&app, &kind, &[file_name], Some(file_name))?;
+    if let Err(error) =
+        replace_active_content(&[(active.clone(), disabled)], &[(stored.clone(), active)])
+    {
+        let _ = save_active_content_manifest(&app, &previous_manifest);
+        return Err(error);
+    }
+    Ok(stored.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -655,25 +1418,74 @@ fn set_content_enabled(
     kind: String,
     file_name: String,
     enabled: bool,
+    url: Option<String>,
+    sha512: Option<String>,
 ) -> Result<(), String> {
-    let file_name = Path::new(&file_name)
-        .file_name()
-        .ok_or("콘텐츠 파일 이름을 확인할 수 없습니다.")?;
-    let active = content_folder(&app, &profile_id, &kind)?.join(file_name);
-    let disabled = PathBuf::from(format!("{}.disabled", active.display()));
-    let (source, destination) = if enabled {
-        (&disabled, &active)
+    let _content_lock = lock_content_files()?;
+    ensure_content_changes_allowed()?;
+    let file_name = normalized_content_file_name(&file_name)?;
+    let stored = profile_content_path(&app, &profile_id, &kind, &file_name)?;
+    let (active, disabled) = active_content_paths(&app, &profile_id, &kind, &file_name)?;
+    if enabled && !stored.exists() {
+        let item = ProfileContentItem {
+            kind: kind.clone(),
+            file_name: file_name.clone(),
+            enabled: true,
+            url,
+            sha512,
+        };
+        ensure_profile_content_file(&app, &profile_id, &item)?;
+    } else if !stored.exists() {
+        let legacy = if active.is_file() {
+            Some(active.as_path())
+        } else if disabled.is_file() {
+            Some(disabled.as_path())
+        } else {
+            None
+        };
+        if let Some(source) = legacy {
+            copy_file_atomically(source, &stored)?;
+        }
+    }
+    if enabled && stored.exists() {
+        validate_content_file(&kind, &stored)?;
+    }
+    let previous_manifest = change_active_content_manifest(
+        &app,
+        &kind,
+        &[&file_name],
+        enabled.then_some(file_name.as_str()),
+    )?;
+    let result = if enabled {
+        replace_active_content(&[(active.clone(), disabled.clone())], &[(stored, active)])
     } else {
-        (&active, &disabled)
+        replace_active_content(&[(active, disabled)], &[])
     };
+    if let Err(error) = result {
+        let _ = save_active_content_manifest(&app, &previous_manifest);
+        return Err(error);
+    }
+    Ok(())
+}
 
-    if destination.exists() && source.exists() {
-        return Err("활성 파일과 비활성 파일이 동시에 존재합니다.".into());
+#[tauri::command]
+fn remove_content_file(
+    app: tauri::AppHandle,
+    profile_id: String,
+    kind: String,
+    file_name: String,
+) -> Result<(), String> {
+    let _content_lock = lock_content_files()?;
+    ensure_content_changes_allowed()?;
+    let file_name = normalized_content_file_name(&file_name)?;
+    let stored = profile_content_path(&app, &profile_id, &kind, &file_name)?;
+    let (active, disabled) = active_content_paths(&app, &profile_id, &kind, &file_name)?;
+    let previous_manifest = change_active_content_manifest(&app, &kind, &[&file_name], None)?;
+    if let Err(error) = remove_files_transactionally(&[stored, active, disabled]) {
+        let _ = save_active_content_manifest(&app, &previous_manifest);
+        return Err(error);
     }
-    if destination.exists() || !source.exists() {
-        return Ok(());
-    }
-    fs::rename(source, destination).map_err(|error| error.to_string())
+    Ok(())
 }
 
 #[tauri::command]
@@ -684,29 +1496,69 @@ async fn download_content_file(
     url: String,
     file_name: String,
     previous_file_name: Option<String>,
+    sha512: Option<String>,
 ) -> Result<String, String> {
     let parsed = reqwest::Url::parse(&url).map_err(|error| error.to_string())?;
     if parsed.scheme() != "https" || parsed.host_str() != Some("cdn.modrinth.com") {
         return Err("허용되지 않은 다운로드 주소입니다.".into());
     }
-    let response = reqwest::get(parsed)
+    let response = reqwest::Client::builder()
+        .timeout(CONTENT_DOWNLOAD_TIMEOUT)
+        .build()
+        .map_err(|error| error.to_string())?
+        .get(parsed)
+        .send()
         .await
         .map_err(|error| error.to_string())?;
     if !response.status().is_success() {
         return Err(format!("다운로드 실패: {}", response.status()));
     }
-    let destination = content_folder(&app, &profile_id, &kind)?.join(safe_segment(&file_name));
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_CONTENT_DOWNLOAD_BYTES)
+    {
+        return Err("콘텐츠 파일이 허용 크기(512 MB)를 초과합니다.".into());
+    }
+    let file_name = normalized_content_file_name(&file_name)?;
+    let destination = profile_content_path(&app, &profile_id, &kind, &file_name)?;
     let bytes = response.bytes().await.map_err(|error| error.to_string())?;
-    fs::write(&destination, bytes).map_err(|error| error.to_string())?;
+    if bytes.len() as u64 > MAX_CONTENT_DOWNLOAD_BYTES {
+        return Err("콘텐츠 파일이 허용 크기(512 MB)를 초과합니다.".into());
+    }
+    let _content_lock = lock_content_files()?;
+    ensure_content_changes_allowed()?;
+    let staged = temporary_content_path(&destination, "download")?;
+    if let Err(error) = fs::write(&staged, bytes) {
+        let _ = remove_file_if_exists(&staged);
+        return Err(error.to_string());
+    }
+    if let Err(error) = validate_stored_content(&kind, &staged, sha512.as_deref()) {
+        let _ = fs::remove_file(&staged);
+        return Err(error);
+    }
+    commit_staged_file(&staged, &destination)?;
+    let (active, disabled) = active_content_paths(&app, &profile_id, &kind, &file_name)?;
+    let mut managed_paths = vec![(active.clone(), disabled)];
+    let mut previous_stored = None;
+    let mut previous_name = None;
     if let Some(previous) = previous_file_name.filter(|previous| previous != &file_name) {
-        let folder = content_folder(&app, &profile_id, &kind)?;
-        let previous = folder.join(safe_segment(&previous));
-        let disabled = PathBuf::from(format!("{}.disabled", previous.display()));
-        for path in [previous, disabled] {
-            if path.exists() {
-                fs::remove_file(path).map_err(|error| error.to_string())?;
-            }
-        }
+        let previous = normalized_content_file_name(&previous)?;
+        previous_stored = Some(profile_content_path(&app, &profile_id, &kind, &previous)?);
+        managed_paths.push(active_content_paths(&app, &profile_id, &kind, &previous)?);
+        previous_name = Some(previous);
+    }
+    let mut removed_names = vec![file_name.as_str()];
+    if let Some(previous) = previous_name.as_deref() {
+        removed_names.push(previous);
+    }
+    let previous_manifest =
+        change_active_content_manifest(&app, &kind, &removed_names, Some(&file_name))?;
+    if let Err(error) = replace_active_content(&managed_paths, &[(destination.clone(), active)]) {
+        let _ = save_active_content_manifest(&app, &previous_manifest);
+        return Err(error);
+    }
+    if let Some(previous_stored) = previous_stored {
+        let _ = remove_file_if_exists(&previous_stored);
     }
     Ok(destination.to_string_lossy().into_owned())
 }
@@ -745,8 +1597,10 @@ pub fn run() {
             store_auth_secret,
             load_auth_secret,
             delete_auth_secret,
+            sync_profile_content,
             install_content_file,
             set_content_enabled,
+            remove_content_file,
             download_content_file,
             java_runtime::ensure_java_runtime,
             java_runtime::discover_java_runtimes,

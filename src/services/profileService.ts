@@ -14,7 +14,18 @@ interface ConsoleManifestResponse {
 function isProfile(value: unknown): value is LauncherProfile {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<LauncherProfile>;
-  return typeof candidate.id === "string" && typeof candidate.name === "string" && typeof candidate.accentColor === "string";
+  return typeof candidate.id === "string"
+    && candidate.id.trim().length > 0
+    && typeof candidate.name === "string"
+    && typeof candidate.accentColor === "string"
+    && typeof candidate.minecraftVersion === "string"
+    && typeof candidate.modLoader === "string"
+    && Array.isArray(candidate.mods)
+    && Array.isArray(candidate.resourcePacks)
+    && Array.isArray(candidate.shaders)
+    && Boolean(candidate.editableFields && typeof candidate.editableFields === "object")
+    && Boolean(candidate.launchOptions && typeof candidate.launchOptions === "object")
+    && Array.isArray(candidate.launchOptions?.javaArgs);
 }
 
 function normalizeProfile(profile: LauncherProfile): LauncherProfile {

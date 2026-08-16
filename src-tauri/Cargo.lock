@@ -6237,7 +6237,7 @@ dependencies = [
 
 [[package]]
 name = "zzapcho-launcher"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "discord-rich-presence",
  "keyring",
@@ -6245,6 +6245,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",

@@ -23,6 +23,7 @@ interface SectionPanelProps {
   account: LauncherAccount;
   onLogout: () => Promise<void>;
   appUpdate: AppUpdateState;
+  contentChangesDisabled?: boolean;
 }
 
 const isTauri = () => "__TAURI_INTERNALS__" in window;
@@ -46,7 +47,7 @@ const sectionCopy = {
   settings: { title: "설정" },
 } as const;
 
-function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: ContentKind }) {
+function ContentManager({ profile, kind, disabled = false }: { profile: LauncherProfile; kind: ContentKind; disabled?: boolean }) {
   const content = useProfileContent(profile);
   const [projects, setProjects] = useState<ModrinthProject[]>([]);
   const [query, setQuery] = useState("");
@@ -54,6 +55,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   const [hasMore, setHasMore] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [importMessage, setImportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [versionTarget, setVersionTarget] = useState<string | null>(null);
@@ -63,8 +65,11 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
-  const editable = profile.editableFields[kind];
+  const profileEditable = profile.editableFields[kind];
+  const editable = profileEditable && !disabled;
   const entries = content.state[kind];
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
   const title = sectionCopy[kind === "resourcePacks" ? "resource-packs" : kind].title;
   const importRule = contentImportRules[kind];
 
@@ -141,12 +146,19 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
       .map((path) => path.split(/[\\/]/).pop() ?? path);
     const failures: string[] = [];
     let installedCount = 0;
+    const registeredNames = new Set(entriesRef.current.flatMap((entry) => entry.fileName ? [entry.fileName.toLocaleLowerCase()] : []));
 
     for (const path of acceptedPaths) {
       const fileName = path.split(/[\\/]/).pop() ?? path;
+      const fileKey = fileName.toLocaleLowerCase();
+      if (registeredNames.has(fileKey)) {
+        failures.push(`${fileName}: 이미 이 프로필에 등록된 파일입니다.`);
+        continue;
+      }
       try {
         if (isTauri()) await invoke("install_content_file", { profileId: profile.id, kind, sourcePath: path });
         content.add(kind, createUserContent(fileName.replace(/\.(jar|zip)$/i, ""), fileName));
+        registeredNames.add(fileKey);
         installedCount += 1;
       } catch (error) {
         failures.push(`${fileName}: ${String(error)}`);
@@ -227,9 +239,15 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     setInstalling(project.project_id);
     try {
       const file = await getInstallableVersion(project.project_id, kind, profile);
-      if (isTauri()) await invoke("download_content_file", { profileId: profile.id, kind, url: file.url, fileName: file.fileName, previousFileName: null });
-      content.add(kind, createUserContent(project.title, file.fileName, project.project_id, file.version, project.icon_url ?? undefined, file.gameVersions));
-    } catch (error) { console.error(error); }
+      if (entries.some((entry) => entry.projectId === project.project_id || entry.fileName?.toLocaleLowerCase() === file.fileName.toLocaleLowerCase())) {
+        throw new Error("이미 이 프로필에 등록된 콘텐츠입니다.");
+      }
+      if (isTauri()) await invoke("download_content_file", { profileId: profile.id, kind, url: file.url, fileName: file.fileName, previousFileName: null, sha512: file.sha512 ?? null });
+      content.add(kind, createUserContent(project.title, file.fileName, project.project_id, file.version, project.icon_url ?? undefined, file.gameVersions, file.sha512));
+    } catch (error) {
+      console.error(error);
+      setImportMessage({ tone: "error", text: error instanceof Error ? error.message : String(error) });
+    }
     finally { setInstalling(null); }
   };
 
@@ -246,10 +264,16 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
     if (!editable || entry.required || entry.source !== "user" || !entry.projectId || versionBusy) return;
     setVersionBusy(true);
     try {
-      if (isTauri()) await invoke("download_content_file", { profileId: profile.id, kind, url: option.url, fileName: option.fileName, previousFileName: entry.fileName ?? null });
-      content.patch(kind, entry.id, { version: option.version, fileName: option.fileName, url: option.url, gameVersions: option.gameVersions });
+      if (entries.some((other) => other.id !== entry.id && other.fileName?.toLocaleLowerCase() === option.fileName.toLocaleLowerCase())) {
+        throw new Error("같은 파일명의 다른 콘텐츠가 이미 등록되어 있습니다.");
+      }
+      if (isTauri()) await invoke("download_content_file", { profileId: profile.id, kind, url: option.url, fileName: option.fileName, previousFileName: entry.fileName ?? null, sha512: option.sha512 ?? null });
+      content.patch(kind, entry.id, { version: option.version, fileName: option.fileName, url: option.url, gameVersions: option.gameVersions, sha512: option.sha512 });
       setVersionTarget(null);
-    } catch (error) { console.error(error); }
+    } catch (error) {
+      console.error(error);
+      setImportMessage({ tone: "error", text: error instanceof Error ? error.message : String(error) });
+    }
     finally { setVersionBusy(false); }
   };
 
@@ -269,13 +293,37 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
           kind,
           fileName: entry.fileName,
           enabled: !entry.enabled,
+          url: entry.url || null,
+          sha512: entry.sha512 || null,
         });
       }
       content.toggle(kind, entry.id);
     } catch (error) {
       console.error(error);
+      setImportMessage({ tone: "error", text: error instanceof Error ? error.message : String(error) });
     } finally {
       setToggling(null);
+    }
+  };
+
+  const removeEntry = async (entry: ManagedContentEntry) => {
+    if (!editable || entry.required || entry.source !== "user" || removing) return;
+    setRemoving(entry.id);
+    try {
+      if (isTauri() && entry.fileName) {
+        await invoke("remove_content_file", {
+          profileId: profile.id,
+          kind,
+          fileName: entry.fileName,
+        });
+      }
+      content.remove(kind, entry.id);
+      setImportMessage({ tone: "success", text: `${entry.name} 파일을 제거했습니다.` });
+    } catch (error) {
+      console.warn("콘텐츠 파일 제거 실패", error);
+      setImportMessage({ tone: "error", text: `${entry.name} 파일을 제거하지 못했습니다: ${String(error)}` });
+    } finally {
+      setRemoving(null);
     }
   };
 
@@ -299,7 +347,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
                 <div className="content-name"><strong>{entry.name}</strong><small><button className="content-version" type="button" disabled={!canChangeVersion} aria-expanded={versionTarget === entry.id} onClick={() => void openVersionPicker(entry)}>{entry.version}</button><span> · {entry.source === "server" ? "서버 관리" : entry.required ? "필수" : "사용자 추가"}</span></small>{versionMismatch && <small className="content-warning">지원 버전 {versionHint} · 현재 버전과 달라도 설치 가능</small>}</div>
                 {entry.source === "server" && entry.required ? <span className="managed-badge">필수</span> : <>
                   <button className={`toggle${entry.enabled ? " is-on" : ""}`} type="button" onClick={() => void toggleEntry(entry)} disabled={!canToggle || toggling !== null} aria-label={`${entry.name} ${entry.enabled ? "끄기" : "켜기"}`} aria-pressed={entry.enabled}><span /></button>
-                  {entry.source === "server" ? <span className="managed-badge">서버</span> : <button className="remove-content" type="button" onClick={() => content.remove(kind, entry.id)} disabled={!canRemove} aria-label={`${entry.name} 제거`}>×</button>}
+                  {entry.source === "server" ? <span className="managed-badge">서버</span> : <button className="remove-content" type="button" onClick={() => void removeEntry(entry)} disabled={!canRemove || removing !== null} aria-label={`${entry.name} 제거`}>×</button>}
                 </>}
               </div>
               {versionTarget === entry.id && <div className="version-picker" role="dialog" aria-label={`${entry.name} 버전 선택`}>
@@ -339,7 +387,7 @@ function ContentManager({ profile, kind }: { profile: LauncherProfile; kind: Con
               <div className="load-more-sentinel" ref={loadMoreRef}>{loading && projects.length ? "더 불러오는 중..." : hasMore ? "" : projects.length ? "모두 불러왔습니다." : ""}</div>
             </div>
           </div>
-        </> : <div className="locked-panel">이 프로필에서는 {title} 추가·토글·삭제가 허용되지 않습니다.</div>}
+        </> : <div className="locked-panel">{disabled && profileEditable ? `Minecraft 실행 중에는 ${title}을 변경할 수 없습니다.` : `이 프로필에서는 ${title} 추가·토글·삭제가 허용되지 않습니다.`}</div>}
       </section>
     </div>
   );
@@ -465,18 +513,18 @@ function SettingsPanel({ profile, configuration, account, onLogout, appUpdate }:
       <input className="memory-slider" type="range" min="0.5" max="32" step="0.5" value={settings.memoryGb} onChange={(event) => setMemoryGb(Number(event.target.value))} />
     </article>
     <article><span>게임 폴더</span><strong>.minecraft</strong><button className="settings-button" type="button" onClick={() => { if (isTauri()) void invoke("open_game_folder"); }}>폴더 열기</button></article>
-    <article className="info-setting"><span>정보</span><strong>zzapcho Launcher 0.7.1</strong><small>Tauri · React · Minecraft custom launcher</small></article>
+    <article className="info-setting"><span>정보</span><strong>zzapcho Launcher 0.7.2</strong><small>Tauri · React · Minecraft custom launcher</small></article>
     <footer>made by zzapcho</footer>
   </div>;
 }
 
-export function SectionPanel({ profile, configuration, section, account, onLogout, appUpdate }: SectionPanelProps) {
+export function SectionPanel({ profile, configuration, section, account, onLogout, appUpdate, contentChangesDisabled }: SectionPanelProps) {
   const copy = sectionCopy[section];
   const contentKind: ContentKind | null = section === "mods" ? "mods" : section === "resource-packs" ? "resourcePacks" : section === "shaders" ? "shaders" : null;
   return (
     <section className={`section-panel section-${section}`} aria-label={copy.title}>
       <header><h2>{copy.title}</h2></header>
-      {contentKind && <ContentManager key={`${profile.id}-${contentKind}`} profile={profile} kind={contentKind} />}
+      {contentKind && <ContentManager key={`${profile.id}-${contentKind}`} profile={profile} kind={contentKind} disabled={contentChangesDisabled} />}
       {section === "logs" && <LogsPanel />}
       {section === "settings" && <SettingsPanel profile={profile} configuration={configuration} account={account} onLogout={onLogout} appUpdate={appUpdate} />}
     </section>
